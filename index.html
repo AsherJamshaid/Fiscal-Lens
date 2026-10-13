@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiscal Lens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Spectral:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!--
+  JS HOOKS (for the JS team)
+  - Text values: set .textContent on elements with the ids below.
+  - Levy band: set CSS vars on #levy-band -> style.setProperty('--fair', 18.5) and ('--actual', 22). Scale is 0-40%.
+    Set #levy-band dataset.state = 'over' | 'under'.
+  - Cards: set dataset.state = 'loading' | 'ready' | 'error' on any .tile / .panel.
+  - Charts: draw into <canvas id="chart-oil|gold|fx"> (Chart.js).
+  - Pipeline: each #step-N (1-7) takes dataset.state = 'pending' | 'running' | 'done' | 'error'.
+    Also set #step-N-state (text), #step-N-time (e.g. '420 ms'), and the value ids inside it (s1-..., s7-...).
+    Update #pipeline-progress: style.setProperty('--done', n) and aria-valuenow. Set #pipe-done and #pipe-total.
+    Append lines to #run-log. Hook #run-pipeline click to re-run.
+  - Trend: set dataset.trend = 'up' | 'down' on .change elements.
+-->
+<header class="top">
+  <div>
+    <h1>Fiscal Lens</h1>
+    <p class="lede">Fair petrol levy and solar subsidy for Pakistan, from live oil, gold and PKR data.</p>
+  </div>
+  <div class="meta">
+    <span class="status" id="status" data-state="loading">Connecting to server</span>
+    <span class="updated">Last updated <time id="last-updated">not yet</time></span>
+  </div>
+</header>
+
+<main>
+  <section class="levy" aria-labelledby="levy-h">
+    <h2 id="levy-h">Petrol levy: fair vs actual</h2>
+    <div class="band" id="levy-band" data-state="over" style="--fair:18.5; --actual:22;">
+      <div class="track">
+        <div class="gap"></div>
+        <div class="pin pin-fair"><span>Fair</span></div>
+        <div class="pin pin-actual"><span>Actual</span></div>
+      </div>
+      <div class="scale"><span>0%</span><span>10%</span><span>20%</span><span>30%</span><span>40%</span></div>
+    </div>
+
+    <dl class="readouts">
+      <div><dt>Fair levy</dt><dd><span id="fair-levy">--</span>%</dd></div>
+      <div><dt>Actual levy</dt><dd><span id="actual-levy">--</span>%</dd></div>
+      <div class="gapnum"><dt>Gap</dt><dd><span id="levy-gap">--</span> pts</dd></div>
+      <div class="subsidy"><dt>Solar subsidy applied</dt><dd><span id="solar-subsidy">--</span>%</dd></div>
+    </dl>
+    <p class="formula">When the actual levy goes above the fair levy, solar tax is cut by the gap times a set rate:
+      <code>subsidy = base + k × (actual − fair)</code></p>
+  </section>
+
+
+  <section class="pipeline" aria-labelledby="pipe-h">
+    <header class="pipe-head">
+      <div>
+        <h2 id="pipe-h">How these numbers were calculated</h2>
+        <p class="pipe-sub"><span id="pipe-done">0</span> of 7 steps done <span id="pipe-total"></span></p>
+      </div>
+      <button type="button" id="run-pipeline" class="btn">Run calculation again</button>
+    </header>
+    <div class="progress" id="pipeline-progress" style="--done:0" role="progressbar" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0"><span></span></div>
+    <div class="pipe-body">
+      <ol class="steps">
+    <li class="step" id="step-1" data-state="pending">
+      <details>
+        <summary>
+          <span class="num">1</span>
+          <span class="what"><strong>Fetch live data</strong><small>Oil, gold and USD/PKR pulled from their sources</small></span>
+          <span class="state" id="step-1-state">Waiting</span>
+          <span class="time" id="step-1-time"></span>
+        </summary>
+        <dl class="vals"><div><dt>Source calls</dt><dd id="s1-calls">--</dd></div><div><dt>Records received</dt><dd id="s1-records">--</dd></div><div><dt>Failed calls</dt><dd id="s1-failed">--</dd></div></dl>
+      </details>
+    </li>
+    <li class="step" id="step-2" data-state="pending">
+      <details>
+        <summary>
+          <span class="num">2</span>
+          <span class="what"><strong>Clean and store history</strong><small>Gaps filled, duplicates removed, saved for training</small></span>
+          <span class="state" id="step-2-state">Waiting</span>
+          <span class="time" id="step-2-time"></span>
+        </summary>
+        <dl class="vals"><div><dt>Rows stored</dt><dd id="s2-rows">--</dd></div><div><dt>Date range</dt><dd id="s2-range">--</dd></div><div><dt>Gaps filled</dt><dd id="s2-gaps">--</dd></div></dl>
+      </details>
+    </li>
+    <li class="step" id="step-3" data-state="pending">
+      <details>
+        <summary>
+          <span class="num">3</span>
+          <span class="what"><strong>Train the model</strong><small>Regression and ARIMA fitted on the stored history</small></span>
+          <span class="state" id="step-3-state">Waiting</span>
+          <span class="time" id="step-3-time"></span>
+        </summary>
+        <dl class="vals"><div><dt>Training window</dt><dd id="s3-window">--</dd></div><div><dt>ARIMA order (p, d, q)</dt><dd id="s3-order">--</dd></div><div><dt>Regression R²</dt><dd id="s3-r2">--</dd></div><div><dt>Error on test data (MAE)</dt><dd id="s3-mae">--</dd></div></dl>
+      </details>
+    </li>
+    <li class="step" id="step-4" data-state="pending">
+      <details>
+        <summary>
+          <span class="num">4</span>
+          <span class="what"><strong>Forecast prices</strong><small>Next 7 days for oil, gold and USD/PKR</small></span>
+          <span class="state" id="step-4-state">Waiting</span>
+          <span class="time" id="step-4-time"></span>
+        </summary>
+        <dl class="vals"><div><dt>Oil in 7 days</dt><dd id="s4-oil">--</dd></div><div><dt>Gold in 7 days</dt><dd id="s4-gold">--</dd></div><div><dt>USD/PKR in 7 days</dt><dd id="s4-fx">--</dd></div><div><dt>Confidence range</dt><dd id="s4-range">--</dd></div></dl>
+      </details>
+    </li>
+    <li class="step" id="step-5" data-state="pending">
+      <details>
+        <summary>
+          <span class="num">5</span>
+          <span class="what"><strong>Find what people can afford</strong><small>Buying power and the gold inflation factor set a ceiling</small></span>
+          <span class="state" id="step-5-state">Waiting</span>
+          <span class="time" id="step-5-time"></span>
+        </summary>
+        <dl class="vals"><div><dt>Buying power index</dt><dd id="s5-power">--</dd></div><div><dt>Gold inflation factor</dt><dd id="s5-gold">--</dd></div><div><dt>Affordability ceiling</dt><dd id="s5-ceiling">--</dd></div></dl>
+      </details>
+    </li>
+    <li class="step" id="step-6" data-state="pending">
+      <details>
+        <summary>
+          <span class="num">6</span>
+          <span class="what"><strong>Work out the fair levy</strong><small>Debt to recover, spread over petrol used by transport, then capped by the ceiling</small></span>
+          <span class="state" id="step-6-state">Waiting</span>
+          <span class="time" id="step-6-time"></span>
+        </summary>
+        <dl class="vals"><div><dt>Debt to recover</dt><dd id="s6-debt">--</dd></div><div><dt>Petrol used by transport</dt><dd id="s6-litres">--</dd></div><div><dt>Levy needed per litre</dt><dd id="s6-perlitre">--</dd></div><div><dt>Fair levy after ceiling</dt><dd id="s6-fair">--</dd></div></dl>
+      </details>
+    </li>
+    <li class="step" id="step-7" data-state="pending">
+      <details>
+        <summary>
+          <span class="num">7</span>
+          <span class="what"><strong>Compare and set the solar subsidy</strong><small>Actual levy vs fair levy decides how much solar tax is cut</small></span>
+          <span class="state" id="step-7-state">Waiting</span>
+          <span class="time" id="step-7-time"></span>
+        </summary>
+        <dl class="vals"><div><dt>Actual levy</dt><dd id="s7-actual">--</dd></div><div><dt>Gap</dt><dd id="s7-gap">--</dd></div><div><dt>Rate k</dt><dd id="s7-k">--</dd></div><div><dt>Solar subsidy</dt><dd id="s7-subsidy">--</dd></div></dl>
+      </details>
+    </li>
+      </ol>
+      <aside class="logbox">
+        <h3>Server log</h3>
+        <pre id="run-log" class="log" tabindex="0" aria-live="polite">Waiting for the first run.</pre>
+      </aside>
+    </div>
+  </section>
+
+  <section class="markets" aria-label="Market prices">
+    <article class="tile" data-state="loading">
+      <header><h3>Oil (Brent)</h3><span class="unit">USD per barrel</span></header>
+      <p class="price" id="oil-price">--</p>
+      <p class="change" id="oil-change" data-trend="up">--</p>
+      <canvas id="chart-oil" aria-label="Oil price history and forecast"></canvas>
+      <p class="forecast">Forecast in 7 days: <strong id="oil-forecast">--</strong></p>
+      <p class="msg">Oil data did not load. Check that the server is running.</p>
+    </article>
+    <article class="tile" data-state="loading">
+      <header><h3>Gold</h3><span class="unit">USD per ounce</span></header>
+      <p class="price" id="gold-price">--</p>
+      <p class="change" id="gold-change" data-trend="up">--</p>
+      <canvas id="chart-gold" aria-label="Gold price history and forecast"></canvas>
+      <p class="forecast">Forecast in 7 days: <strong id="gold-forecast">--</strong></p>
+      <p class="msg">Gold data did not load. Check that the server is running.</p>
+    </article>
+    <article class="tile" data-state="loading">
+      <header><h3>USD to PKR</h3><span class="unit">rupees per dollar</span></header>
+      <p class="price" id="fx-price">--</p>
+      <p class="change" id="fx-change" data-trend="up">--</p>
+      <canvas id="chart-fx" aria-label="Exchange rate history and forecast"></canvas>
+      <p class="forecast">Forecast in 7 days: <strong id="fx-forecast">--</strong></p>
+      <p class="msg">Exchange rate did not load. Check that the server is running.</p>
+    </article>
+  </section>
+
+  <section class="lower">
+    <article class="panel" data-state="loading">
+      <h2>What the levy is based on</h2>
+      <dl class="inputs">
+        <div><dt>Global oil price</dt><dd id="in-oil">--</dd></div>
+        <div><dt>Buying power in Pakistan</dt><dd id="in-power">--</dd></div>
+        <div><dt>Debt to recover this year</dt><dd id="in-debt">--</dd></div>
+        <div><dt>Petrol used by transport</dt><dd id="in-litres">--</dd></div>
+        <div><dt>Gold inflation factor</dt><dd id="in-gold">--</dd></div>
+      </dl>
+    </article>
+
+    <article class="panel" data-state="loading">
+      <h2>How accurate are the forecasts</h2>
+      <table>
+        <thead><tr><th scope="col">Asset</th><th scope="col">Avg error (MAE)</th><th scope="col">Error % (MAPE)</th></tr></thead>
+        <tbody id="accuracy-rows">
+          <tr><td colspan="3" class="empty">Accuracy appears here after the model runs.</td></tr>
+        </tbody>
+      </table>
+    </article>
+
+    <article class="panel" data-state="loading">
+      <h2>IMF conditions</h2>
+      <ul id="imf-conditions" class="imf">
+        <li class="empty">No IMF data loaded yet.</li>
+      </ul>
+    </article>
+  </section>
+</main>
+
+<footer class="foot">Forecasts come from the C++ model (regression and ARIMA). They are estimates, not official figures.</footer>
+</body>
+</html>
