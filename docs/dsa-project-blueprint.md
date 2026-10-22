@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 - **Course requirement:** Data Structures & Algorithms — "CCA (Project + Project Report)"
-- **Deadline:** Nov 1, 23:59 — submitted in week 12
+- **Deadline:** Nov 15, 23:59
 - **Weight:** 10 points
 - **Team size:** up to 4 members
 - **Course constraint:** implement an algorithm from an ML/DL/NLP/Cyber Security/Cryptography domain, in C++, using a real dataset, with a full complexity analysis of the implemented algorithm(s). No "vibe-coding" — the team writes the core algorithms itself.
