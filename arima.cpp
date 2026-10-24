@@ -1,8 +1,34 @@
 #include <iostream>
 #include <vector>
 #include<cmath>
+#include<fstream>
+#include<sstream>
 using namespace std;
+// x[t] = c + φ1·x[t-1] + φ2·x[t-2] + ... + φp·x[t-p] + e[t] -> general eq for AR(p)
+bool loadCSV(const string& path, vector<string>& dates, vector<double>& prices) {
+    ifstream file(path);
+    if (!file.is_open()) return false;     // file nahi mili
 
+    string line;
+    getline(file, line);                   // pehli line (header) skip
+
+    while (getline(file, line)) {
+        if (line.empty()) continue;
+        stringstream ss(line);
+        string date, priceStr;
+        getline(ss, date, ','); //this breakage can be done with the help of stringstream
+        getline(ss, priceStr, ',');
+
+        try {
+            double price = stod(priceStr); // string se double
+            dates.push_back(date);
+            prices.push_back(price);
+        } catch (...) {
+            continue;
+            }
+    }
+    return true;
+}
 class ARIMA {
 // days ye batata hai ke har window mein kitne din aage predict karne hain. Default 30 hai,
 //  matlab 700 din pe train karo to 701 se 730 tak ke 30 din predict honge aur unka RMSE nikalega.
@@ -26,7 +52,11 @@ class ARIMA {
        return newData;
     }
     // Step 2
-    vector<double> getCoefficients(const vector<double>& data, int p) const;
+    vector<double> getCoefficients(const vector<double>& data, int p)
+    {
+     
+        
+    }
 
     // Step 3
     vector<double> predictValues(const vector<double>& data,
