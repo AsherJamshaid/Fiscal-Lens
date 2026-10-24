@@ -21,6 +21,12 @@ double sse(const vector<double>& ys){
 }
 
 int main() {
-    cout << sse({5, 5, 5}) << endl;               
-cout << sse({5, 5, 5, 20, 20, 20}) << endl;     
+  vector<double> x = {1, 2, 3, 10, 11, 12};
+vector<double> y = {5, 5, 5, 20, 20, 20};
+double t = 6.5;
+
+vector<double> left, right;
+// loop over i: if x[i] <= t, push y[i] into left, else into right
+
+cout << sse(left) + sse(right) << endl;   // expect 0   
 }
