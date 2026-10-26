@@ -32,7 +32,7 @@ bool loadCSV(const string& path, vector<string>& dates, vector<double>& prices) 
 class ARIMA {
 // days ye batata hai ke har window mein kitne din aage predict karne hain. Default 30 hai,
 //  matlab 700 din pe train karo to 701 se 730 tak ke 30 din predict honge aur unka RMSE nikalega.
-// step ye batata hai ke agli window kitna aage khiskegi. Default 7 hai,
+// step ye batata hai ke agli window kitna aage khiskegi.
     // Step 1
     void toLog(vector<double> &data)
     {
