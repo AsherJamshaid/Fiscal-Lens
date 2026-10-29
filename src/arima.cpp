@@ -70,19 +70,19 @@ class ARIMA
         vector<double> predictedval;
         vector<double> pseudo_data=data;
          int pseudo_data_handler=pseudo_data.size()-1;
-        int pseudo_days = 0;
-        while (pseudo_days <= 30)
+        int pseudo_days = 1;
+        while (pseudo_days <= days)
         {
-            int val = 0;
+            double val = 0;
             for (int i = 0; i < coeffs.size(); i++)
             {
                 if (i == 0)
                 {
                     val += coeffs[i];
                 }
-                else //incomplete
+                else 
                 {
-                    val += pseudo_data[--pseudo_data_handler] * coeffs[i];
+                    val += pseudo_data[pseudo_data_handler--] * coeffs[i];
                 }
             }
             predictedval.push_back(val);
@@ -90,6 +90,7 @@ class ARIMA
             pseudo_data_handler=pseudo_data.size()-1;
             pseudo_days++;
         }
+        return predictedval;
     }
 
     // Step 3.5
