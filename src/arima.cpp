@@ -49,6 +49,13 @@ class ARIMA
             d = log(d);
         }
     }
+    void toAntiLog(vector<double> &data)
+    {
+        for (double &d : data)
+        {
+            d = exp(d);
+        }
+    }
     vector<double> makeStationary(vector<double> &data)
     {
         toLog(data);
@@ -94,8 +101,17 @@ class ARIMA
     }
 
     // Step 3.5
-    vector<double> integrateValues(const vector<double> &predicted,
-                                   const vector<double> &original) const;
+    vector<double> integrateValues(const vector<double> &predicted,const vector<double> &original)
+    {
+        vector<double> integrated_val;
+        integrated_val.push_back(original.back()+predicted[0]);
+         for (int i = 1; i < predicted.size(); i++)
+        {
+            integrated_val.push_back(integrated_val.back()+predicted[i]);
+        }
+        toAntiLog(integrated_val);
+        return integrated_val;
+    }
 
     // Step 4
     double getRMSE(const vector<double> &predicted,
