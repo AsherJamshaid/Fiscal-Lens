@@ -67,8 +67,51 @@ class ARIMA
         return newData;
     }
     // Step 2
-    vector<double> getCoefficients(const vector<double> &data, int p)
+    vector<double> getCoefficients(const vector<double>& data, int p)
     {
+    int n = data.size();
+
+    // Mean
+    double mean = 0.0;
+    for (int i = 0; i < n; i++) mean += data[i];
+    mean /= n;
+
+    // Autocorrelations r[0] to r[p]
+    vector<double> r(p + 1, 0.0);
+    for (int k = 0; k <= p; k++) {
+        for (int t = k; t < n; t++)
+            r[k] += (data[t] - mean) * (data[t - k] - mean);
+        r[k] /= n;
+    }
+    if (r[0] == 0.0) return vector<double>(p + 1, 0.0);
+
+    // Levinson-Durbin
+    vector<double> phi(p + 1, 0.0);
+    vector<double> phi_prev(p + 1, 0.0);
+    double sigma2 = r[0];
+
+    phi[1] = r[1] / r[0];
+    sigma2 *= (1.0 - phi[1] * phi[1]);
+    if (sigma2 <= 0.0) sigma2 = 1e-12;
+
+    for (int m = 2; m <= p; m++) {
+        phi_prev = phi;
+        double num = r[m];
+        for (int j = 1; j <= m - 1; j++)
+            num -= phi_prev[j] * r[m - j];
+        double km = num / sigma2;
+        phi[m] = km;
+        for (int j = 1; j <= m - 1; j++)
+            phi[j] = phi_prev[j] - km * phi_prev[m - j];
+        sigma2 *= (1.0 - km * km);
+        if (sigma2 <= 0.0) sigma2 = 1e-12;
+    }
+
+    // coeffs[0] = intercept, coeffs[1]=phi1, coeffs[2]=phi2 ...
+    vector<double> result(p + 1);
+    result[0] = mean;                              // intercept = mean
+    for (int i = 1; i <= p; i++) result[i] = phi[i];
+    return result;
     }
 
     // Step 3
@@ -125,7 +168,7 @@ class ARIMA
 
     int getBestP() const;
     const vector<double> &getErrors() const; // errors[p-1] = avg RMSE of AR(p)
-
+    
     int maxP;
     int days;
     int step;
