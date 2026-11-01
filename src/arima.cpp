@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include "arima.h"
 using namespace std;
 // x[t] = c + φ1·x[t-1] + φ2·x[t-2] + ... + φp·x[t-p] + e[t] -> general eq for AR(p)
 bool loadCSV(const string &path, vector<string> &dates, vector<double> &prices)
@@ -276,26 +277,34 @@ class ARIMA
     int bestP;
     double bestErr;
     vector<double> coeffs;
-    vector<double> history;
+    // vector<double> history;
+    vector<double> prices;
 
 public:
     ARIMA(int maxP = 10, int days = 30, int step = 7, int startTrain = 700) : maxP(maxP), days(days), step(step)
     , startTrain(startTrain),bestP(-1),bestErr(-1) {}
     void trainModel(const vector<double> &data)
-    {
-      bestP=findBestP(data);
-      coeffs=getCoefficients(data,bestP);
-    }
-    vector<double> forecast(int days)const
-    {
-      //1st day is referred as forecasted[0] and so on
-      vector<double> forecasted;
-      for (int i=1;i<=days;i++)
-      {
-        
-      }
+{
+    bestP = findBestP(data);
+    if (bestP < 1) return;
 
-    }
+    prices = data;                       // raw prices store
+
+    vector<double> logPrices = data;
+    vector<double> diff = makeStationary(logPrices);
+    coeffs = getCoefficients(diff, bestP);
+}
+
+vector<double> forecast(int n) const
+{
+    if (bestP < 1 || prices.size() < 2) return {};
+
+    vector<double> logPrices = prices;   // copy, kyunki const function hai
+    vector<double> diff = makeStationary(logPrices);
+
+    vector<double> pred = predictValues(diff, coeffs, n);
+    return integrateValues(pred, vector<double>{logPrices.back()});
+}
 };
 int main()
 {
