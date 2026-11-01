@@ -238,7 +238,28 @@ class ARIMA
         bestErr = (minP == -1) ? -1 : Min;
         return minP;
     }
-    double baselineRMSE(const vector<double> &data) const;
+    double baselineRMSE(const vector<double> &data) const{
+    
+        // min 2 vals required
+        if(data.size() < 2)
+            return -1;
+
+        double sum = 0.0;
+        int count = 0;
+
+        for(size_t i = 1; i < data.size(); i++){
+    
+            double predicted = data[i - 1];
+            double actual = data[i];
+
+            double err = predicted - actual; //calcs error
+            sum += err * err;                  
+            count++;
+        }   
+
+    // this is the baselineRMSE:
+        return sqrt(sum / count);
+    }
 
     int getBestP() const
     {
