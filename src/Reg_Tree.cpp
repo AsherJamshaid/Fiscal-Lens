@@ -126,6 +126,43 @@ private:
         }
         return best;
     }
+
+    void freeTree(TreeNode* node) {
+        if (!node) return;
+        freeTree(node->left);
+        freeTree(node->right);
+        delete node;
+    }
+    int countLeaves(TreeNode* node) const {
+        if (!node) return 0;
+        if (node->isLeaf) return 1;
+        return countLeaves(node->left) + countLeaves(node->right);
+    }
+
+public:
+    
+    RegressionTree(int depth = 4, int minSplit = 6, int minLeaf = 3)
+        : root(nullptr), maxDepth(depth), minSamplesSplit(minSplit),
+          minSamplesLeaf(minLeaf) {}
+    
+    ~RegressionTree() { freeTree(root); }
+    
+    // duplicates not allowed
+    RegressionTree(const RegressionTree&) = delete;
+    RegressionTree& operator=(const RegressionTree&) = delete;
+
+    void fit(const vector<vector<double>>& X, const vector<double>& y) {
+        freeTree(root);
+        vector<int> idx(y.size());
+        for (int i = 0; i < (int)y.size(); i++) idx[i] = i;
+        root = build(X, y, idx, 0);
+    }
+    double predict(const vector<double>& x) const {
+        TreeNode* cur = root;
+        while (!cur->isLeaf) cur = (x[cur->featureIdx] <= cur->threshold) ? cur->left : cur->right;
+        return cur->prediction;
+    }
+    int leaves() const { return countLeaves(root); }
 };
 
 
