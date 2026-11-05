@@ -1,0 +1,32 @@
+/* 1. BASE — design tokens, reset, typography */
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap");
+
+:root {
+  --mist: #eef1f4;
+  --paper: #ffffff;
+  --ink: #0f2230;
+  --ink-soft: #4b6070;
+  --line: #d5dde4;
+  --night: #0c1b26;
+  --cobalt: #2f3fd0;      /* Module 1: forecasting */
+  --cobalt-tint: #e6e9fb;
+  --saffron: #e0a100;     /* Module 2: levy */
+  --saffron-tint: #fbf1d0;
+  --mint: #148f6a;
+  --radius: 10px;
+  --serif: "Newsreader", Georgia, serif;
+  --sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--mist); color: var(--ink); font: 400 15px/1.55 var(--sans); font-variant-numeric: tabular-nums; }
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.15; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.2rem, 4vw, 3.2rem); }
+h2 { font-size: 1.9rem; }
+h3 { font-size: 1.15rem; }
+p { margin: 0; max-width: 68ch; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+.muted { color: var(--ink-soft); }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
