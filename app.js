@@ -1,129 +1,36 @@
-/* ENTRY POINT: plain JS; no build step or chart CDN required. */
+
 const $ = id => document.getElementById(id);
-// DEFAULT VISIBILITY: a focused first view; all eight inputs remain selectable.
-const selected = new Set(['forecast_crude_price', 'usd_pkr', 'current_levy']);
 const number = v => v == null ? '—' : new Intl.NumberFormat('en-PK', {maximumFractionDigits:2}).format(v);
-
-// LEGEND: each checkbox toggles one feature and redraws the chart/table.
-FEATURES.forEach(f => {
-  const label = document.createElement('label');
-  const input = document.createElement('input');
-  input.type = 'checkbox'; input.checked = selected.has(f.key); input.style.accentColor = f.color;
-  input.addEventListener('change', () => {
-    input.checked ? selected.add(f.key) : selected.delete(f.key); renderChart();
-  });
-  label.append(input, document.createTextNode(f.label)); label.style.color = f.color;
-  $('legend').append(label);
-});
-
-// SVG HELPER: textContent keeps labels as text, including future backend strings.
-function svgElement(tag, attrs, text) {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
-  if (text !== undefined) el.textContent = text;
-  $('chart').append(el); return el;
-}
-function renderChart() {
-  const count = Number($('window').value);
-  const rows = count ? HISTORY.slice(-count) : HISTORY;
-  $('chart').replaceChildren(); $('values').replaceChildren();
-  // INDEXING: signed baseline magnitude supports negative fiscal gaps.
-  // Formula equals value/base*100 for positive baselines. Zero baselines are skipped.
-  const active = FEATURES.filter(f => selected.has(f.key));
-  const series = active.filter(f => rows.length && rows[0][f.key] !== 0).map(f => ({...f,
-    points: rows.map(r => 100 + (r[f.key]-rows[0][f.key])/Math.abs(rows[0][f.key])*100)
-  }));
-  if (!rows.length || !series.length) {
-    $('chart-note').textContent = 'No chartable features. Select a feature with a nonzero starting value.';
-    // Keep raw values available even when every selected series has a zero baseline.
-    renderValues(rows, active); return;
-  }
-  // CHART GEOMETRY: left/right/top/bottom margins and plot dimensions.
-  const left=76, top=24, width=890, height=430;
-  const all = series.flatMap(s => s.points), min=Math.min(...all), max=Math.max(...all);
-  const pad=(max-min)*.08 || 10, low=min-pad, high=max+pad;
-  const x=i=>left+i/Math.max(rows.length-1,1)*width;
-  const y=v=>top+height-(v-low)/(high-low)*height;
-  for(let i=0;i<=4;i++) {
-    const value=low+(high-low)*i/4;
-    svgElement('line',{x1:left,y1:y(value),x2:left+width,y2:y(value),stroke:getComputedStyle(document.documentElement).getPropertyValue('--line').trim()});
-    svgElement('text',{x:left-10,y:y(value)+4,'text-anchor':'end',fill:getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(),'font-size':18},number(value));
-  }
-  [0,Math.floor((rows.length-1)/2),rows.length-1].forEach(i => svgElement('text',{
-    x:x(i),y:495,'text-anchor':i===0?'start':i===rows.length-1?'end':'middle',fill:getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(),'font-size':18
-  },rows[i].date));
-  series.forEach(s => {
-    svgElement('polyline',{points:s.points.map((v,i)=>`${x(i)},${y(v)}`).join(' '),fill:'none',stroke:s.color,'stroke-width':3});
-    s.points.forEach((v,i) => {
-      const point=svgElement('circle',{cx:x(i),cy:y(v),r:3,fill:s.color});
-      const title=document.createElementNS('http://www.w3.org/2000/svg','title');
-      title.textContent=`${s.label} · ${rows[i].date}: ${number(rows[i][s.key])} ${s.unit}`; point.append(title);
-    });
-  });
-  renderValues(rows, active);
-  $('chart-note').textContent=`${rows[0].date} → ${rows.at(-1).date} · ${rows.length} observations.${series.length < active.length ? " Zero-baseline series omitted." : ""}`;
-}
-
-// SOURCE TABLE: separate from chart scaling so zero-baseline values remain inspectable.
-function renderValues(rows, active) {
-  rows.forEach(r => active.forEach(f => {
-    const tr=document.createElement('tr');
-    [r.date,f.label,number(r[f.key]),f.unit].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td);});
-    $('values').append(tr);
-  }));
-}
-
-// PREDICTION CARDS: null forecasts intentionally display a dash, never fake predictions.
-// TODO BACKEND: replace PREDICTIONS via a JSON export or API and call renderCards().
 function renderCards() {
   $('cards').replaceChildren();
   PREDICTIONS.forEach(p => {
     const card=document.createElement('article'); card.className='card';
-    const add=(tag,cls,text)=>{const el=document.createElement(tag);el.className=cls;el.textContent=text;card.append(el);};
-    add('div','eyebrow',p.label); add('div','metric',number(p.forecast)); add('div','unit',p.unit);
-    add('p','note',p.forecast == null ? 'Forecast unavailable' : `Forecast for ${p.targetDate}`);
-    card.append(document.createElement('hr'));
-    add('strong','',`Historical: ${number(p.current)}`);
-    add('p','note',`${p.date} · ${p.source}`);
-    $('cards').append(card);
+    const heading=document.createElement('div'), value=document.createElement('div');
+    heading.className='reference-heading'; value.className='reference-value';
+    const label=document.createElement('h3'); label.textContent=p.label;
+    const date=document.createElement('p'); date.className='small-note'; date.textContent=p.forecast==null?p.date:p.targetDate;
+    heading.append(label,date);
+    const metric=document.createElement('div'); metric.className='metric'; metric.textContent=number(p.forecast??p.current);
+    const unit=document.createElement('p'); unit.className='unit'; unit.textContent=p.unit;
+    const status=document.createElement('span'); status.className='small-note'; status.textContent=p.forecast==null?'Historical':'Forecast';
+    value.append(metric,unit,status); card.append(heading,value); $('cards').append(card);
   });
 }
 
-// WALKTHROUGH CONTENT: edit these descriptions or add steps; the buttons build automatically.
-const STEPS = [
-  {title:'Prepare inputs',copy:'Align daily prices, monthly indicators and fortnightly levy records to a common prediction cutoff. Use only information available before that cutoff.',visual:'Daily prices + monthly indicators → dated feature rows'},
-  {title:'Forecast crude',copy:'Fit an AR(p) model to log differences, select the order using rolling validation, then convert forecasts back to price levels.',visual:'Prices → log → difference → AR(p) → integrate → price forecast'},
-  {title:'Estimate levy',copy:'The regression tree chooses splits using SSE. Inputs follow the learned branches to a leaf, which returns its mean training levy.',visual:'8 inputs → learned threshold tests → leaf mean → levy estimate'},
-  {title:'Build fuel price',copy:'Combine import cost, margins, IFEM, taxes and levy. Count carbon levy separately only if it is excluded from the predicted levy.',visual:'Import cost + OMC + dealer + IFEM + GST + petroleum levy + carbon levy'}
-];
-function showStep(index) {
-  $('step-number').textContent=`STAGE 0${index+1}`;
-  $('step-title').textContent=STEPS[index].title;
-  $('step-copy').textContent=STEPS[index].copy;
-  $('step-visual').textContent=STEPS[index].visual;
-  [...$('steps').children].forEach((button,i)=>button.setAttribute('aria-pressed',String(i===index)));
-}
-STEPS.forEach((step,i)=>{const button=document.createElement('button');button.textContent=`0${i+1} · ${step.title}`;button.addEventListener('click',()=>showStep(i));$('steps').append(button);});
-$('window').addEventListener('change',renderChart);
-renderChart(); renderCards(); showStep(0);
-// THEME TOGGLE: swaps data-theme on <html>; chart re-renders to re-read CSS tokens.
+renderCards();
 const themeBtn = $('theme-toggle');
-function setTheme(t, animate) { // CHANGED: added `animate` param
-  const apply = () => { // CHANGED: original body moved into apply()
+function setTheme(t, animate) {
+  const apply = () => {
     document.documentElement.dataset.theme = t;
     themeBtn.textContent = t === 'light' ? 'Dark mode' : 'Light mode';
     document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     try { localStorage.setItem('theme', t); } catch (e) {}
-    renderChart();
+
   };
-  // ADDED: cross-fade when supported; instant otherwise or on first load
   if (animate && document.startViewTransition) document.startViewTransition(apply); else apply();
 }
-// CHANGED: click passes `true` so only user toggles animate
 themeBtn.addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true));
-setTheme(document.documentElement.dataset.theme || 'dark'); // no animation on load
-// ACTIVE NAVIGATION: use section positions on scroll, including short bottom sections.
-// Add a section and matching nav anchor in HTML; this code discovers them automatically.
+setTheme(document.documentElement.dataset.theme || 'dark');
 const navLinks = [...document.querySelectorAll('.nav a')];
 function updateNavigation() {
   let current = navLinks[0];
@@ -139,7 +46,6 @@ function updateNavigation() {
     else link.removeAttribute('aria-current');
   });
 }
-// One animation-frame update per scroll burst keeps navigation inexpensive.
 let navigationPending = false;
 window.addEventListener('scroll', () => {
   if (navigationPending) return;
@@ -148,3 +54,192 @@ window.addEventListener('scroll', () => {
 }, {passive:true});
 window.addEventListener('resize', updateNavigation);
 updateNavigation();
+const FORECAST_STAGES = ['Load price history', 'Difference the series once', 'Compute autocorrelations',
+  'Fit AR orders · Levinson–Durbin', 'Select order by AIC', 'Validate on held-out observations', 'Generate forecast'];
+let forecastResult = null;
+const average = a => a.reduce((s,v)=>s+v,0)/a.length;
+function difference(values) { return values.slice(1).map((v,i)=>v-values[i]); }
+function correlations(values, maxOrder) {
+  const mean=average(values), centered=values.map(v=>v-mean);
+  return {mean, gamma:Array.from({length:maxOrder+1},(_,lag)=>
+    centered.slice(lag).reduce((s,v,i)=>s+v*centered[i],0)/values.length)};
+}
+function fitOrders(stats,maxOrder) {
+  let coefficients=[], variance=stats.gamma[0];
+  const fits=[];
+  for(let p=1;p<=maxOrder;p++) {
+    const reflection=variance>1e-12
+      ? (stats.gamma[p]-coefficients.reduce((s,a,j)=>s+a*stats.gamma[p-j-1],0))/variance : 0;
+    if(!Number.isFinite(reflection) || Math.abs(reflection)>=1) break;
+    const previous=coefficients;
+    coefficients=previous.map((a,j)=>a-reflection*previous[p-j-2]).concat(reflection);
+    variance=Math.max(0,variance*(1-reflection*reflection));
+    fits.push({p, coefficients, mean:stats.mean});
+  }
+  return fits;
+}
+function chooseOrder(fits,deltas,maxOrder) {
+  const scored=fits.map(fit=>{
+    let squared=0;
+    for(let i=maxOrder;i<deltas.length;i++) {
+      const estimate=fit.mean+fit.coefficients.reduce((s,a,j)=>s+a*(deltas[i-j-1]-fit.mean),0);
+      squared+=(deltas[i]-estimate)**2;
+    }
+    const n=deltas.length-maxOrder;
+    return {...fit,aic:n*Math.log(Math.max(squared/n,1e-12))+2*(fit.p+2)};
+  });
+  scored.sort((a,b)=>a.aic-b.aic);
+  if(!scored.length) throw new Error('Unable to fit a stable AR model to this series.');
+  return scored[0];
+}
+function project(fit,values,horizon) {
+  const deltas=difference(values), predictions=[];
+  let level=values.at(-1);
+  for(let i=0;i<horizon;i++) {
+    const delta=fit.mean+fit.coefficients.reduce((s,a,j)=>s+a*(deltas.at(-j-1)-fit.mean),0);
+    deltas.push(delta); level+=delta;
+    if(!Number.isFinite(level)) throw new Error('The model produced an invalid projection.');
+    predictions.push(level);
+  }
+  return predictions;
+}
+function predictionErrors(actual,predicted) {
+  const errors=actual.map((v,i)=>predicted[i]-v);
+  const percentages=actual.flatMap((v,i)=>v===0?[]:[Math.abs(errors[i]/v)*100]);
+  return {mae:average(errors.map(Math.abs)),rmse:Math.sqrt(average(errors.map(v=>v*v))),
+    mape:percentages.length?average(percentages):null};
+}
+function renderForecastChart() {
+  if(!forecastResult) return;
+  const {feature,values,predictions}=forecastResult;
+  const svg=$('forecastSvg'); svg.replaceChildren();
+  const style=getComputedStyle(document.documentElement), color=name=>style.getPropertyValue(name).trim();
+  const add=(tag,attrs,text)=>{
+    const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+    if(text!==undefined) el.textContent=text;
+    svg.append(el); return el;
+  };
+  const count=Number($('window').value);
+  const history=count?values.slice(-count):values, all=history.concat(predictions);
+  const min=Math.min(...all), max=Math.max(...all), pad=(max-min)*.1||1;
+  const x=i=>76+i/(all.length-1)*890, y=v=>24+430-(v-min+pad)/(max-min+2*pad)*430;
+  for(let i=0;i<=4;i++) {
+    const v=min-pad+(max-min+2*pad)*i/4;
+    add('line',{x1:76,x2:966,y1:y(v),y2:y(v),stroke:color('--line')});
+    add('text',{x:66,y:y(v)+5,'text-anchor':'end',fill:color('--muted'),'font-size':18},number(v));
+  }
+  add('line',{x1:x(history.length-1),x2:x(history.length-1),y1:24,y2:454,
+    stroke:color('--muted'),'stroke-dasharray':'4 6'});
+  add('polyline',{points:history.map((v,i)=>x(i)+','+y(v)).join(' '),fill:'none',stroke:color('--blue'),'stroke-width':3});
+  add('polyline',{points:[history.at(-1),...predictions].map((v,i)=>x(history.length-1+i)+','+y(v)).join(' '),
+    fill:'none',stroke:color('--yellow'),'stroke-width':3,'stroke-dasharray':'8 6'});
+  predictions.forEach((v,i)=>{
+    const point=add('circle',{cx:x(history.length+i),cy:y(v),r:4,fill:color('--yellow')});
+    const title=document.createElementNS(svg.namespaceURI,'title');
+    title.textContent='Observation +'+(i+1)+': '+number(v)+' '+feature.unit; point.append(title);
+  });
+  [[0,HISTORY.at(-history.length).date,'start'],[history.length-1,'Last observed','middle'],
+    [all.length-1,'+'+predictions.length+' observations','end']].forEach(([i,label,anchor])=>
+      add('text',{x:x(i),y:495,'text-anchor':anchor,fill:color('--muted'),'font-size':17},label));
+  svg.setAttribute('aria-label',feature.label+': historical values and '+predictions.length+' projected observations in '+feature.unit);
+}
+async function runOverviewForecast() {
+  const button=$('runForecast'), input=$('forecastInput'), windowInput=$('forecastHorizon');
+  button.disabled=true; input.disabled=true; windowInput.disabled=true;
+  $('forecastPanel').setAttribute('aria-busy','true');
+  $('chartIdle').hidden=true; $('chartProgress').hidden=false;
+  $('forecastPlot').hidden=true; $('forecastLegend').hidden=true; $('modelInfo').hidden=true;
+  forecastResult=null;
+  resetAccuracy('Forecast running…');
+  $('forecastSteps').replaceChildren();
+  const steps=FORECAST_STAGES.map(label=>{
+    const li=document.createElement('li'), name=document.createElement('span'), status=document.createElement('span');
+    name.textContent=label; status.textContent='Waiting'; li.append(name,status); $('forecastSteps').append(li); return li;
+  });
+  const paint=()=>new Promise(resolve=>setTimeout(resolve,100));
+  async function stage(index,work) {
+    const li=steps[index]; li.dataset.state='running'; li.lastChild.textContent='Running';
+    $('runSummary').textContent='Step '+(index+1)+' of '+steps.length+' · '+FORECAST_STAGES[index];
+    await paint(); const result=work();
+    li.dataset.state='done'; li.lastChild.textContent='Done'; return result;
+  }
+  try {
+    const feature=FEATURES.find(f=>f.key===input.value), horizon=Number(windowInput.value);
+    const values=await stage(0,()=>{
+      const result=HISTORY.map(row=>row[feature.key]);
+      if(result.length<20 || !result.every(Number.isFinite)) throw new Error('At least 20 complete numeric observations are required.');
+      return result;
+    });
+    const heldOut=Math.min(12,Math.floor(values.length/4)), training=values.slice(0,-heldOut);
+    const deltas=await stage(1,()=>difference(training));
+    const maxOrder=Math.min(12,Math.floor(deltas.length/4));
+    const stats=await stage(2,()=>correlations(deltas,maxOrder));
+    const fits=await stage(3,()=>fitOrders(stats,maxOrder));
+    const chosen=await stage(4,()=>chooseOrder(fits,deltas,maxOrder));
+    const errors=await stage(5,()=>predictionErrors(values.slice(-heldOut),project(chosen,training,heldOut)));
+    const predictions=await stage(6,()=>{
+      const fit=fitOrders(correlations(difference(values),chosen.p),chosen.p).find(f=>f.p===chosen.p);
+      if(!fit) throw new Error('Unable to refit the selected model.');
+      return project(fit,values,horizon);
+    });
+    forecastResult={feature,values,predictions};
+    $('statOrder').textContent=chosen.p; $('statDiff').textContent='1'; $('statNext').textContent=number(predictions[0]);
+    $('statMape').textContent=errors.mape===null?'N/A':number(errors.mape)+'%';
+    $('statRmse').textContent=number(errors.rmse); $('statMae').textContent=number(errors.mae);
+    $('modelNote').textContent='ARI('+chosen.p+', 1) · AIC order selection · '+feature.unit;
+    $('accuracyNote').textContent=feature.label+' · '+heldOut+' held-out observations · RMSE / MAE: '+feature.unit+'.';
+    $('forecastUnit').textContent=feature.unit;
+    renderForecastChart();
+    $('chartProgress').hidden=true; $('forecastPlot').hidden=false; $('forecastLegend').hidden=false; $('modelInfo').hidden=false;
+    $('runSummary').textContent=feature.label+' · '+horizon+' projected observations.';
+  } catch(error) {
+    resetAccuracy('Forecast unavailable. Try again.');
+    $('runSummary').textContent='Forecast could not run: '+error.message;
+    steps.forEach(li=>{if(li.dataset.state==='running') li.lastChild.textContent='Failed';});
+  } finally {
+    button.disabled=false; input.disabled=false; windowInput.disabled=false;
+    $('forecastPanel').setAttribute('aria-busy','false');
+  }
+}
+$('runForecast').addEventListener('click',runOverviewForecast);
+function resetAccuracy(message) {
+  ['statMape','statRmse','statMae'].forEach(id=>$(id).textContent='—');
+  $('accuracyNote').textContent=message;
+}
+$('window').addEventListener('change',renderForecastChart);
+function invalidateForecast() {
+  resetAccuracy('Run a forecast to view accuracy.');
+  forecastResult=null;
+  $('forecastPlot').hidden=true; $('forecastLegend').hidden=true; $('modelInfo').hidden=true; $('chartProgress').hidden=true;
+  $('chartIdle').hidden=false; $('forecastUnit').textContent='Ready to run';
+  $('runSummary').textContent='Settings changed. Click Run forecast to refresh.';
+}
+$('forecastInput').addEventListener('change',invalidateForecast);
+$('forecastHorizon').addEventListener('change',invalidateForecast);
+new MutationObserver(()=>renderForecastChart()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+function renderLevySummary() {
+  const price=PREDICTIONS.find(p=>p.label==='Petrol price'), levy=PREDICTIONS.find(p=>p.label==='Petroleum levy');
+  $('levyValue').textContent=Number.isFinite(levy?.forecast)?number(levy.forecast):'—';
+  $('levyRecommendationNote').textContent=Number.isFinite(levy?.forecast)
+    ? 'Regression-tree recommendation for '+levy.targetDate+'.' : 'Recommendation pending.';
+  document.querySelectorAll('.levy-band-scale span').forEach(el=>{
+    const active=Number.isFinite(levy?.forecast)&&el.dataset.band===levy.band;
+    el.classList.toggle('is-on',active);
+    if(active) el.setAttribute('aria-current','true'); else el.removeAttribute('aria-current');
+  });
+  $('buildup').replaceChildren(); $('buildupKeys').replaceChildren();
+  if(!price || !levy || price.date!==levy.date || !(price.current>0) || !(levy.current>=0 && levy.current<=price.current)) {
+    $('buildupNote').textContent='Matching dated price components are unavailable.'; return;
+  }
+  const segments=[['Other costs and taxes',price.current-levy.current],['Petroleum levy',levy.current]];
+  segments.forEach(([label,value])=>{
+    const span=document.createElement('span'); span.style.width=value/price.current*100+'%'; span.title=label+': PKR '+number(value);
+    $('buildup').append(span);
+    const row=document.createElement('div'), dt=document.createElement('dt'), dd=document.createElement('dd');
+    dt.textContent=label; dd.textContent='PKR '+number(value); row.append(dt,dd); $('buildupKeys').append(row);
+  });
+  $('buildup').setAttribute('aria-label',segments.map(([label,value])=>label+': PKR '+number(value)).join('; '));
+  $('buildupNote').textContent='Total: PKR '+number(price.current)+' / litre · '+price.date+'.';
+}
+renderLevySummary();

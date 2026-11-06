@@ -5,21 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#292b36">
   <title>Fiscal Lens · Commodity & levy insights</title>
-  <!-- STYLE ENTRY: edit tokens in base.css, grids in layout.css, features in components.css. -->
-
-
-
   <link rel="stylesheet" href="styles.css">
-  <!-- DATA FIRST: plain scripts also work when index.html is opened directly. -->
-   <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
   <script src="data.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
-<!-- KEYBOARD ACCESS: becomes visible when focused with Tab. -->
 <a class="skip-link" href="#main">Skip to content</a>
 <div class="shell">
-  <!-- NAVIGATION: add an anchor here when adding a section with a matching ID. -->
   <aside class="sidebar">
     <a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true">F<span>l</span></span>Fiscal Lens<span class="brand-dot">.</span></a>
     <p class="sidebar-label">WORKSPACE</p>
@@ -32,38 +25,76 @@
     <div class="sidebar-foot"><span class="status-dot"></span> Historical dataset</div>
   </aside>
   <main class="main" id="main" tabindex="-1">
-   <header class="topbar"><span>COMMODITIES & LEVY</span><div class="topbar-right"><span class="status">Historical data</span><button id="theme-toggle" class="theme-toggle" type="button">Light mode</button></div></header>
-    <!-- OVERVIEW: the hero uses 1.618:1 columns; the smaller side explains the workflow. -->
     <section id="overview" class="section hero">
+      <div class="hero-tools"><button id="theme-toggle" class="theme-toggle" type="button">Light mode</button></div>
       <div class="hero-banner">
         <div><h1>Commodity trends.<br><em>Petroleum levy.</em></h1><p class="hero-lede">Track prices, compare historical inputs and review levy estimates.</p><a class="btn" href="#tracker">View tracker <span aria-hidden="true">↗</span></a></div>
-        <aside class="hero-note"><h2>Quick access</h2><div class="overview-links"><a href="#tracker"><span>01</span>Historical inputs ↗</a><a href="#levy"><span>02</span>Levy estimates ↗</a><a href="#benchmarks"><span>03</span>Algorithm benchmarks ↗</a></div></aside>
+        <aside class="hero-note"><h2>Quick access</h2><div class="overview-links"><a href="#tracker"><span>01</span>Price forecasts ↗</a><a href="#levy"><span>02</span>Levy estimates ↗</a><a href="#benchmarks"><span>03</span>Algorithm benchmarks ↗</a></div></aside>
       </div>
-      <!-- MODULE LINKS: compact entry points, with stable blue/purple feature identities. -->
-      <div class="hero-modules"><a class="module-card cobalt" href="#tracker"><span class="eyebrow">MODULE 1</span><h3>Commodity Tracker <span aria-hidden="true">↗</span></h3><p>Compare eight historical inputs on a common scale.</p></a><a class="module-card purple" href="#levy"><span class="eyebrow">MODULE 2</span><h3>Levy Advisor <span aria-hidden="true">↗</span></h3><p>Trace the process from model inputs to a levy estimate.</p></a></div>
+      <div class="hero-modules"><a class="module-card cobalt" href="#tracker"><span class="eyebrow">MODULE 1</span><h3>Commodity Tracker <span aria-hidden="true">↗</span></h3><p>Project prices from historical inputs.</p></a><a class="module-card purple" href="#levy"><span class="eyebrow">MODULE 2</span><h3>Levy Advisor <span aria-hidden="true">↗</span></h3><p>Review levy estimates and fuel costs.</p></a></div>
     </section>
-    <!-- TRACKER: controls occupy 38.2% and the chart 61.8% of available column space. -->
     <section id="tracker" class="section">
       <div class="section-head"><div><p class="eyebrow blue">MARKET DATA</p><h2>Commodity Tracker</h2></div></div>
-      <div class="workspace">
-        <aside class="panel controls"><h3>Chart settings</h3><label class="field" for="window">Observation window<select id="window"><option value="12">Latest 12 observations</option><option value="24">Latest 24 observations</option><option value="0">All observations</option></select></label><fieldset><legend>Visible inputs</legend><div id="legend" class="legend"></div></fieldset><p class="small-note">Base 100. One observation = one dataset row.</p></aside>
-        <div class="panel chart-panel"><div class="panel-title"><h3>Historical input trends</h3><span class="badge">Indexed · base 100</span></div><div class="chart"><svg id="chart" viewBox="0 0 1000 520" role="img" aria-label="Selected historical inputs indexed to 100"></svg></div><p class="small-note" id="chart-note" aria-live="polite"></p></div>
+      <div class="forecast-workspace">
+        <aside class="panel forecast-settings">
+          <h3>Forecast settings</h3>
+          <label class="field" for="forecastInput">Input series<select id="forecastInput"><option value="forecast_crude_price">Crude input</option><option value="usd_pkr">USD / PKR</option><option value="retail_petrol_price">Retail petrol</option></select></label>
+          <label class="field" for="forecastHorizon">Forecast window<select id="forecastHorizon"><option value="12">Next 12 observations</option><option value="24">Next 24 observations</option></select></label>
+          <label class="field" for="window">History window<select id="window"><option value="12">Latest 12 observations</option><option value="24">Latest 24 observations</option><option value="0">All observations</option></select></label>
+          <button class="btn" id="runForecast" type="button">Run forecast <span aria-hidden="true">↗</span></button>
+          <p class="small-note forecast-period-note">One observation = one dataset period.</p>
+        </aside>
+        <div class="forecast-stack">
+          <div class="panel" id="forecastPanel" aria-busy="false">
+            <div class="panel-title"><h3>Price forecast</h3><span class="badge" id="forecastUnit">Ready to run</span></div>
+            <p class="forecast-idle small-note" id="chartIdle">Choose an input and run the forecast.</p>
+            <div id="chartProgress" hidden><ol id="forecastSteps" class="forecast-steps" aria-label="Forecast progress"></ol></div>
+            <div class="chart" id="forecastPlot" hidden><svg id="forecastSvg" viewBox="0 0 1000 520" role="img" aria-label="Historical values and forecast"></svg></div>
+            <div id="forecastLegend" class="forecast-legend" hidden><span><i></i>History</span><span><i class="projection"></i>Forecast</span></div>
+            <p id="runSummary" class="small-note" role="status" aria-live="polite"></p>
+          </div>
+          <div id="modelInfo" class="forecast-stack" hidden>
+            <div class="panel"><div class="panel-title"><h3>Selected model</h3><span class="badge">ARI · Levinson–Durbin</span></div>
+              <div class="forecast-stats"><div><b id="statOrder">—</b><span>AR order (p)</span></div><div><b id="statDiff">—</b><span>Differencing (d)</span></div><div><b id="statNext">—</b><span>Next observation</span></div></div>
+              <p id="modelNote" class="small-note"></p>
+            </div>
+          </div>
+        </div>
       </div>
-      <!-- RAW VALUES: native details works with keyboard; table preserves original units. -->
-      <details class="panel data-details"><summary>Inspect source values <span class="muted">Original units</span></summary><div class="table-wrap" tabindex="0" role="region" aria-label="Historical source values"><table><caption>Values for the selected inputs and observation window</caption><thead><tr><th scope="col">Date</th><th scope="col">Input</th><th scope="col">Value</th><th scope="col">Unit</th></tr></thead><tbody id="values"></tbody></table></div></details>
     </section>
-    <!-- OUTPUTS: cards are generated from PREDICTIONS; no model runs in this frontend. -->
     <section id="levy" class="section">
       <div class="section-head"><div><p class="eyebrow purple-text">LEVY</p><h2>Petroleum Levy Advisor</h2></div></div>
-      <div class="notice"><span class="status-dot"></span> Forecasts unavailable · Historical values shown for reference.</div>
-      <div id="cards" class="cards"></div>
-      <!-- WALKTHROUGH: edit STEPS in app.js; buttons are created automatically. -->
-      <div class="panel process"><div class="panel-title"><h3>Model workflow</h3><span class="badge">Overview</span></div><div class="process-grid"><div id="steps" class="steps" role="group" aria-label="Model workflow stages"></div><div class="step-content" aria-live="polite"><p class="eyebrow" id="step-number"></p><h3 id="step-title"></h3><p id="step-copy"></p><p id="step-visual" class="step-visual"></p></div></div></div>
-      <!-- EXTENSION: replace this content with an actual exported tree path when available. -->
-      <div class="extension" id="decision-path"><span class="eyebrow purple-text">DECISION PATH</span><p>No model path available yet.</p></div>
+      <div class="levy-workspace">
+        <aside class="forecast-stack">
+          <div class="panel levy-recommendation"><div class="panel-title"><h3>Recommended levy</h3><span class="badge">PKR / litre</span></div>
+            <div class="metric" id="levyValue">—</div><p id="levyRecommendationNote" class="small-note">Awaiting regression-tree output.</p>
+            <div class="levy-band-scale" aria-label="Levy bands"><span data-band="low">Low</span><span data-band="moderate">Moderate</span><span data-band="high">High</span><span data-band="very-high">Very high</span></div>
+          </div>
+          <div class="panel"><div class="panel-title"><h3>Pump price build-up</h3><span class="badge">Historical</span></div>
+            <div id="buildup" class="price-buildup" role="img" aria-label="Historical pump price breakdown"></div>
+            <dl id="buildupKeys" class="buildup-keys"></dl><p id="buildupNote" class="small-note"></p>
+          </div>
+        </aside>
+        <div id="cards" class="cards levy-reference-cards"></div>
+      </div>
     </section>
-    <!-- BENCHMARKS: no invented runtimes; replace dashes only after measuring the backend. -->
-    <section id="benchmarks" class="section"><div class="section-head"><div><p class="eyebrow">PERFORMANCE</p><h2>Benchmarks</h2></div><p>Compare algorithms on identical inputs.</p></div><div class="panel"><div class="panel-title"><h3>Algorithm comparison</h3><span class="badge">Measurements pending</span></div><div class="table-wrap" tabindex="0" role="region" aria-label="Algorithm benchmarks"><table><caption>Algorithm complexity · Runtime measurements pending.</caption><thead><tr><th scope="col">Task</th><th scope="col">Efficient method</th><th scope="col">Baseline</th><th scope="col">Measured time</th></tr></thead><tbody><tr><td>AR coefficient fitting</td><td>Levinson–Durbin · O(p²)</td><td>Dense solve · O(p³)</td><td>—</td></tr><tr><td>Best split per feature / node</td><td>Sort + prefix scan · O(n log n)</td><td>Rescan each threshold · O(n²)</td><td>—</td></tr></tbody></table></div><p class="small-note">p = model order; n = rows at the node. The split estimate assumes constant-time scoring after prefix sums.</p></div></section>
+    <section id="benchmarks" class="section">
+      <div class="section-head"><div><p class="eyebrow">PERFORMANCE</p><h2>Benchmarks</h2></div><p>Compare algorithms on identical inputs.</p></div>
+            <div class="panel accuracy-panel"><div class="panel-title"><h3>Model accuracy</h3><span class="badge">Held-out data</span></div>
+              <div class="forecast-stats"><div><b id="statMape">—</b><span>MAPE</span></div><div><b id="statRmse">—</b><span>RMSE</span></div><div><b id="statMae">—</b><span>MAE</span></div></div>
+              <p id="accuracyNote" class="small-note" aria-live="polite">Run a forecast to view accuracy.</p>
+            </div>
+      <div class="benchmark-grid">
+        <div class="panel"><div class="panel-title"><h3>Fitting AR coefficients</h3><span class="badge">O(p²) vs O(p³)</span></div><div id="raceAR" class="benchmark-race">
+          <div class="benchmark-row"><span>Levinson–Durbin</span><span class="benchmark-track"><i></i></span><span>—</span></div>
+          <div class="benchmark-row"><span>Dense solve</span><span class="benchmark-track"><i class="baseline"></i></span><span>—</span></div>
+        </div><p class="small-note">Backend measurements pending · p = AR order.</p></div>
+        <div class="panel"><div class="panel-title"><h3>Finding the best split</h3><span class="badge">O(n log n) vs O(n²)</span></div><div id="raceSplit" class="benchmark-race">
+          <div class="benchmark-row"><span>Sort + prefix scan</span><span class="benchmark-track"><i></i></span><span>—</span></div>
+          <div class="benchmark-row"><span>Rescan thresholds</span><span class="benchmark-track"><i class="baseline"></i></span><span>—</span></div>
+        </div><p class="small-note">Backend measurements pending · n = rows per feature / node.</p></div>
+      </div>
+    </section>
     <footer>Fiscal Lens</footer>
   </main>
 </div>
