@@ -61,6 +61,7 @@ struct Dataset {
     vector<double> levy;
     vector<double> scale;
     vector<double> currentLevy;
+    vector<string> period_start;
 };
 
 struct Metrics { double rmse, mae, mape, r2; };

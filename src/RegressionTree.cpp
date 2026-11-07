@@ -1,4 +1,5 @@
 #include "RegressionTree.h"
+#include "LevyAdvisor.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -180,7 +181,7 @@ bool loadDataset(const string& path, Dataset& ds) {
         wanted = {"forecast_crude_price", "affordability_index",
                   "levy_revenue_target_pkr_bn", "levied_volume_bn_litres"};
     else
-        wanted = {"forecast_crude_price", "usd_pkr", "affordability_index",
+        wanted = {"forecast_crude_price", "affordability_index",
                   "levy_revenue_target_pkr_bn", "fiscal_gap_pkr_bn", "current_levy",
                   "retail_petrol_price", "levied_volume_bn_litres"};
 
@@ -195,8 +196,9 @@ bool loadDataset(const string& path, Dataset& ds) {
     int cVolume = findCol(header, "levied_volume_bn_litres");
     int cCurrent = findCol(header, "current_levy");
     int cLevy = findCol(header, "levy_value");
-    if (cTarget < 0 || cVolume < 0 || cCurrent < 0 || cLevy < 0) {
-        cout << "ERROR: need levy_revenue_target_pkr_bn, levied_volume_bn_litres, current_levy, levy_value\n";
+    int cPeriodStart = findCol(header, "period_start");
+    if (cTarget < 0 || cVolume < 0 || cCurrent < 0 || cLevy < 0 || cPeriodStart < 0) {
+        cout << "ERROR: need levy_revenue_target_pkr_bn, levied_volume_bn_litres, current_levy, levy_value, period_start\n";
         return false;
     }
     if (USE_REQUIRED_LEVY_FEATURE) ds.featureNames.push_back("required_levy");
@@ -221,6 +223,7 @@ bool loadDataset(const string& path, Dataset& ds) {
             ds.scale.push_back(sc);
             ds.y.push_back(levy / sc);
             ds.currentLevy.push_back(stod(cells[cCurrent]));
+            ds.period_start.push_back(cells[cPeriodStart]);
         } catch (const exception&) {
             cout << "ERROR: invalid value in row: " << line << "\n";
             return false;
@@ -294,7 +297,44 @@ double walkForwardPersistence(const Dataset& ds, int trainCount, int startSize, 
 }
 
 // =============================== PART 5: MAIN ================================
-int main() {
+int main(int argc, char* argv[]) {
+    if (argc > 1) {
+        string mode = argv[1];
+        if (mode == "live") {
+            if (argc < 4 || string(argv[2]) != "--crude") {
+                cout << "ERROR: live mode requires '--crude <value>'. Usage: live --crude <value>\n";
+                return 1;
+            }
+            double crude = -1.0;
+            try {
+                size_t idx = 0;
+                string sVal = argv[3];
+                crude = stod(sVal, &idx);
+                if (idx != sVal.size() || crude <= 0) {
+                    cout << "ERROR: --crude must be a positive number (got '" << sVal << "').\n";
+                    return 1;
+                }
+            } catch (...) {
+                cout << "ERROR: --crude must be a positive number (got '" << argv[3] << "').\n";
+                return 1;
+            }
+            if (argc > 4) {
+                cout << "ERROR: unexpected extra arguments for live mode.\n";
+                return 1;
+            }
+            return runLiveMode(crude);
+        } else if (mode == "backtest") {
+            if (argc != 3) {
+                cout << "ERROR: backtest mode requires a target date (YYYY-MM-DD). Usage: backtest YYYY-MM-DD\n";
+                return 1;
+            }
+            return runBacktestMode(argv[2]);
+        } else {
+            cout << "ERROR: unknown mode '" << mode << "'. Usage: tree_test [live --crude <value> | backtest YYYY-MM-DD]\n";
+            return 1;
+        }
+    }
+
     Dataset ds;
     if (!loadDataset(CSV_PATH, ds)) return 1;
     int N = ds.y.size();
@@ -313,7 +353,7 @@ int main() {
     cout << "\nCONFIGURATION\n";
     cout << "Target learned:      " << (PREDICT_MULTIPLIER ? "relief multiplier (levy / required_levy)" : "levy directly") << "\n";
     cout << "required_levy input: " << (USE_REQUIRED_LEVY_FEATURE ? "yes" : "no") << "\n";
-    cout << "Feature set:         " << (RULE_FEATURES_ONLY ? "rule features only" : "all 8 columns") << "\n";
+    cout << "Feature set:         " << (RULE_FEATURES_ONLY ? "rule features only" : "all 7 columns") << "\n";
 
     cout << "\nDATASET SUMMARY\n";
     cout << "Total samples:       " << N << "\n";
