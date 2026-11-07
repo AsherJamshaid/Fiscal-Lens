@@ -10,8 +10,7 @@
 .hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to bottom, color-mix(in srgb, var(--surface-deep) var(--hero-top), transparent) 0%, color-mix(in srgb, var(--bg) 80%, transparent) 55%, var(--bg) 100%); }
 
 /* GOLDEN SPLIT: 1.618/(1.618+1) ≈ 61.8%; spacing is excluded from this ratio. */
-.hero-banner { display: grid; grid-template-columns: minmax(0,1.618fr) minmax(0,1fr); gap: var(--space-4); align-items: center; }
-.hero-modules { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-3); margin-top: 26px; }
+.hero-banner { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--space-4); align-items: center; }.hero-modules { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-3); margin-top: 26px; }
 .section-head { display: flex; justify-content: space-between; gap: var(--space-4); align-items: end; margin-bottom: 21px; }
 .section-head h2 { margin-top: var(--space-2); }
 .section-head > p { color: var(--muted); max-width: 26ch; font-size: .9rem; }

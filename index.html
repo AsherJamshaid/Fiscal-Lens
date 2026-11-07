@@ -28,8 +28,7 @@
     <section id="overview" class="section hero">
       <div class="hero-tools"><button id="theme-toggle" class="theme-toggle" type="button">Light mode</button></div>
       <div class="hero-banner">
-        <div><h1>Commodity trends.<br><em>Petroleum levy.</em></h1><p class="hero-lede">Track prices, compare historical inputs and review levy estimates.</p><a class="btn" href="#tracker">View tracker <span aria-hidden="true">↗</span></a></div>
-        <aside class="hero-note"><h2>Quick access</h2><div class="overview-links"><a href="#tracker"><span>01</span>Price forecasts ↗</a><a href="#levy"><span>02</span>Levy estimates ↗</a><a href="#benchmarks"><span>03</span>Algorithm benchmarks ↗</a></div></aside>
+        <div><h1>Commodity trends.<br><em>Petroleum levy.</em></h1><p class="hero-lede">Track prices, compare historical inputs and review levy estimates.</p></div>
       </div>
       <div class="hero-modules"><a class="module-card cobalt" href="#tracker"><span class="eyebrow">MODULE 1</span><h3>Commodity Tracker <span aria-hidden="true">↗</span></h3><p>Project prices from historical inputs.</p></a><a class="module-card purple" href="#levy"><span class="eyebrow">MODULE 2</span><h3>Levy Advisor <span aria-hidden="true">↗</span></h3><p>Review levy estimates and fuel costs.</p></a></div>
     </section>
@@ -79,21 +78,11 @@
       </div>
     </section>
     <section id="benchmarks" class="section">
-      <div class="section-head"><div><p class="eyebrow">PERFORMANCE</p><h2>Benchmarks</h2></div><p>Compare algorithms on identical inputs.</p></div>
+      <div class="section-head"><div><p class="eyebrow">PERFORMANCE</p><h2>Benchmarks</h2></div><p>Check how far the forecast can be trusted.</p></div>
             <div class="panel accuracy-panel"><div class="panel-title"><h3>Model accuracy</h3><span class="badge">Held-out data</span></div>
               <div class="forecast-stats"><div><b id="statMape">—</b><span>MAPE</span></div><div><b id="statRmse">—</b><span>RMSE</span></div><div><b id="statMae">—</b><span>MAE</span></div></div>
               <p id="accuracyNote" class="small-note" aria-live="polite">Run a forecast to view accuracy.</p>
             </div>
-      <div class="benchmark-grid">
-        <div class="panel"><div class="panel-title"><h3>Fitting AR coefficients</h3><span class="badge">O(p²) vs O(p³)</span></div><div id="raceAR" class="benchmark-race">
-          <div class="benchmark-row"><span>Levinson–Durbin</span><span class="benchmark-track"><i></i></span><span>—</span></div>
-          <div class="benchmark-row"><span>Dense solve</span><span class="benchmark-track"><i class="baseline"></i></span><span>—</span></div>
-        </div><p class="small-note">Backend measurements pending · p = AR order.</p></div>
-        <div class="panel"><div class="panel-title"><h3>Finding the best split</h3><span class="badge">O(n log n) vs O(n²)</span></div><div id="raceSplit" class="benchmark-race">
-          <div class="benchmark-row"><span>Sort + prefix scan</span><span class="benchmark-track"><i></i></span><span>—</span></div>
-          <div class="benchmark-row"><span>Rescan thresholds</span><span class="benchmark-track"><i class="baseline"></i></span><span>—</span></div>
-        </div><p class="small-note">Backend measurements pending · n = rows per feature / node.</p></div>
-      </div>
     </section>
     <footer>Fiscal Lens</footer>
   </main>
