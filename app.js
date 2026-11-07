@@ -22,7 +22,9 @@ const themeBtn = $('theme-toggle');
 function setTheme(t, animate) {
   const apply = () => {
     document.documentElement.dataset.theme = t;
-    themeBtn.textContent = t === 'light' ? 'Dark mode' : 'Light mode';
+    const themeAction = t === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+    themeBtn.setAttribute('aria-label', themeAction);
+    themeBtn.title = themeAction;
     document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     try { localStorage.setItem('theme', t); } catch (e) {}
 
@@ -243,3 +245,18 @@ function renderLevySummary() {
   $('buildupNote').textContent='Total: PKR '+number(price.current)+' / litre · '+price.date+'.';
 }
 renderLevySummary();
+
+// Scroll fade-in
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.intersectionRatio >= .12) e.target.classList.add('is-visible');
+    else if (!e.isIntersecting) e.target.classList.remove('is-visible');
+  }), { threshold: [0, .12] });
+  const watchReveal = () => document.querySelectorAll('.hero-banner,.hero-modules .module-card,.section-head,.panel,.card').forEach(el => {
+    el.classList.add('reveal');
+    el.style.transitionDelay = Math.min([...el.parentElement.children].indexOf(el), 4) * 80 + 'ms';
+    io.observe(el);
+  });
+  watchReveal();
+  new MutationObserver(watchReveal).observe($('cards'), { childList: true });
+}

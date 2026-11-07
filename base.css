@@ -5,7 +5,7 @@
 /* DARK THEME (default). Everything stays inside ONE :root block, closed by its own }. */
 :root {
   color-scheme: dark;
-  --bg: #292b36; --surface: #333643; --surface-deep: #22242e;
+  --bg: #1a1b1d; --surface: #333643; --surface-deep: #16171c;
   --text: #f3f4f7; --muted: #bdc1d1; --line: #4a4e60;
   --yellow: #f2ce63; --blue: #97beff; --purple: #c0a5f5;
   --yellow-ink: #272516; --radius: 16px;
@@ -13,9 +13,9 @@
   /* Fibonacci-like spacing approximates golden-ratio growth: 8,13,21,34,55,89. */
   --space-1: 8px; --space-2: 13px; --space-3: 21px;
   --space-4: 34px; --space-5: 55px; --space-6: 89px;
-  --sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --sans: 'Helvetica Local', Helvetica, Arial, sans-serif;
   --serif: Georgia, 'Times New Roman', serif;
-  --display: 'Paytone One', Georgia, 'Times New Roman', serif; /* ADDED: heading font */
+--display: 'Helvetica Local', Helvetica, Arial, sans-serif;
 }
 
 /* ADDED: LIGHT THEME. Sits AFTER and OUTSIDE the :root block above.
@@ -32,20 +32,18 @@
 :root[data-theme="light"] .module-card:hover { background: #eceef5; }
 
 /* ADDED: self-hosted hero font */
-@font-face {
-  font-family: 'Paytone One';
-  src: url("./assets/fonts/PaytoneOne-Regular.ttf") format("truetype");
-  font-weight: 400; font-style: normal; font-display: swap;
-}
+@font-face { font-family:'Helvetica Local'; src:url("./assets/fonts/helvetica-light-587ebe5a59211.ttf") format("truetype"); font-weight:300; font-style:normal; font-display:swap; }
+@font-face { font-family:'Helvetica Local'; src:url("./assets/fonts/Helvetica.ttf") format("truetype"); font-weight:400; font-style:normal; font-display:swap; }
+@font-face { font-family:'Helvetica Local'; src:url("./assets/fonts/Helvetica-Bold.ttf") format("truetype"); font-weight:700; font-style:normal; font-display:swap; }
 
 /* RESET / TYPE: system fonts keep the page fully offline and predictable. */
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 400 17px/1.5 var(--sans); font-variant-numeric: tabular-nums; }
 h1,h2,h3,p { margin: 0; }
-h1 { font: 400 clamp(2.5rem, 3.8vw, 4.1rem)/1.12 var(--display); letter-spacing: -.01em; } /* CHANGED: --display + looser tracking */
-h2 { font: 400 clamp(1.8rem, 2.6vw, 2.6rem)/1.18 var(--display); letter-spacing: -.005em; } /* CHANGED: --display + looser tracking */
-h3 { font-size: 1.2rem; line-height: 1.4; font-weight: 600; }
+h1 { font: 700 clamp(2.5rem, 3.8vw, 4.1rem)/1.12 var(--display); letter-spacing: -.01em; } /* CHANGED: --display + looser tracking */
+h2 { font: 700 clamp(1.8rem, 2.6vw, 2.6rem)/1.18 var(--display); letter-spacing: -.005em; } /* CHANGED: --display + looser tracking */
+h3 { font-size: 1.2rem; line-height: 1.4; font-weight: 400; }
 a { color: inherit; }
 button,select,input { font: inherit; }
 button,a,input,select,summary { -webkit-tap-highlight-color: transparent; }
@@ -62,3 +60,12 @@ button,a,input,select,summary { -webkit-tap-highlight-color: transparent; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .45s; }
 /* ADDED: respect reduced motion for the theme fade */
 @media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+/* Helvetica Light for small supporting text */
+.small-note,.note,.badge,.status,.unit,.theme-toggle,.forecast-stats span,.forecast-legend,.forecast-steps li,.section-head > p,footer { font-weight: 300; }
+/* Hide the page scrollbar (scrolling still works) */
+html { scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
+/* Scroll reveal (class added by app.js) */
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
+.reveal.is-visible { opacity: 1; transform: none; }
+.reveal:not(.is-visible) { transition-duration: .3s; transition-delay: 0s !important; }

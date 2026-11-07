@@ -8,7 +8,7 @@
 .sidebar-label { margin: 34px 0 13px 12px; color: var(--muted); font-size: .7rem; letter-spacing: .15em; }
 .nav { display: grid; gap: 8px; }
 .nav a { text-decoration: none; display: flex; align-items: center; gap: 13px; padding: 13px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0; font-size: .95rem; color: var(--muted); }
-.nav a span { font-size: .75rem; opacity: .8; }
+.nav-icon { display: block; width: 20px; height: 20px; flex: 0 0 20px; fill: currentColor; }
 .nav a:hover { background: var(--surface); color: var(--text); }
 .nav a.is-active { color: var(--yellow); border-color: var(--yellow); background: #ffffff08; }
 .sidebar-foot { margin-top: auto; color: var(--muted); font-size: .85rem; padding: 21px 10px 0; }
@@ -16,8 +16,8 @@
 .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); margin-right: 8px; flex-shrink: 0; }
 .status,.badge { border: 1px solid var(--line); padding: 5px 10px; border-radius: 30px; color: var(--muted); font-size: .75rem; letter-spacing: .02em; }
 
-.hero-banner h1 { margin-top: 8px; font-family: 'Paytone One', var(--serif); letter-spacing: -.01em; } 
-h1 em { font-weight: 400; font-style: normal; color: var(--yellow); } 
+.hero-banner h1 { margin-top: 8px; font-family: var(--display); letter-spacing: -.01em; } 
+h1 em { font-weight: 700; font-style: normal; color: var(--yellow); } 
 .hero-lede { max-width: 49ch; color: var(--muted); margin-block: 16px 0; }
 .btn { display: inline-flex; align-items: center; gap: 34px; padding: 13px 21px; border: 0; border-radius: 8px; text-decoration: none; font-weight: 650; background: var(--yellow); color: var(--yellow-ink); }
 .btn:hover { background: #ffe097; }
@@ -41,7 +41,12 @@ fieldset { padding: 0; margin: 0 0 21px; border: 0; min-width: 0; }legend { font
 .card .eyebrow { color: var(--muted); }.metric { font-size: 3rem; line-height: 1.4; color: var(--yellow); }.unit { font-size: .95rem; margin-bottom: 8px; }hr { border: 0; border-top: 1px solid var(--line); margin-block: 21px; }.card strong { font-size: 1rem; }.card .note { overflow-wrap: anywhere; margin-top: 5px; }
 
 .topbar-right { display: flex; align-items: center; gap: 13px; }
-.theme-toggle { padding: 5px 12px; border: 1px solid var(--line); border-radius: 30px; background: transparent; color: var(--muted); font-size: .75rem; }
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--yellow); cursor: pointer; }
+.theme-icon { display: block; width: 22px; height: 22px; flex: 0 0 22px; fill: currentColor; }
+.theme-icon-moon { display: none; }
+:root[data-theme="light"] .theme-icon-sun { display: none; }
+:root[data-theme="light"] .theme-icon-moon { display: block; }
+.theme-toggle:focus-visible { outline: 2px solid var(--yellow); outline-offset: 4px; }
 .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
 
 .forecast-workspace,.levy-workspace { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.618fr); gap:var(--space-3); align-items:start; margin-top:var(--space-4); }
@@ -110,3 +115,11 @@ fieldset { padding: 0; margin: 0 0 21px; border: 0; min-width: 0; }legend { font
 #forecastPanel { display: flex; flex-direction: column; }
 #forecastPanel .forecast-idle { flex: 1; }
 #forecastPanel .chart { flex: 1; display: flex; align-items: center; }
+
+/* Benchmarks: two equal panels */
+.benchmark-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); }
+.benchmark-grid .accuracy-panel { margin-bottom:0; }
+.accuracy-arima { border-top:2px solid var(--blue); }
+.accuracy-tree { border-top:2px solid var(--purple); }
+.accuracy-tree .forecast-stats b { color:var(--purple); }
+@media(max-width:800px) { .benchmark-grid { grid-template-columns:1fr; } }
