@@ -22,7 +22,9 @@ const themeBtn = $('theme-toggle');
 function setTheme(t, animate) {
   const apply = () => {
     document.documentElement.dataset.theme = t;
-    themeBtn.textContent = t === 'light' ? 'Dark mode' : 'Light mode';
+    const themeAction = t === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+    themeBtn.setAttribute('aria-label', themeAction);
+    themeBtn.title = themeAction;
     document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     try { localStorage.setItem('theme', t); } catch (e) {}
 

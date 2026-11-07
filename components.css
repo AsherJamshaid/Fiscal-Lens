@@ -8,7 +8,7 @@
 .sidebar-label { margin: 34px 0 13px 12px; color: var(--muted); font-size: .7rem; letter-spacing: .15em; }
 .nav { display: grid; gap: 8px; }
 .nav a { text-decoration: none; display: flex; align-items: center; gap: 13px; padding: 13px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0; font-size: .95rem; color: var(--muted); }
-.nav a span { font-size: .75rem; opacity: .8; }
+.nav-icon { display: block; width: 20px; height: 20px; flex: 0 0 20px; fill: currentColor; }
 .nav a:hover { background: var(--surface); color: var(--text); }
 .nav a.is-active { color: var(--yellow); border-color: var(--yellow); background: #ffffff08; }
 .sidebar-foot { margin-top: auto; color: var(--muted); font-size: .85rem; padding: 21px 10px 0; }
@@ -41,7 +41,12 @@ fieldset { padding: 0; margin: 0 0 21px; border: 0; min-width: 0; }legend { font
 .card .eyebrow { color: var(--muted); }.metric { font-size: 3rem; line-height: 1.4; color: var(--yellow); }.unit { font-size: .95rem; margin-bottom: 8px; }hr { border: 0; border-top: 1px solid var(--line); margin-block: 21px; }.card strong { font-size: 1rem; }.card .note { overflow-wrap: anywhere; margin-top: 5px; }
 
 .topbar-right { display: flex; align-items: center; gap: 13px; }
-.theme-toggle { padding: 5px 12px; border: 1px solid var(--line); border-radius: 30px; background: transparent; color: var(--muted); font-size: .75rem; }
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--yellow); cursor: pointer; }
+.theme-icon { display: block; width: 22px; height: 22px; flex: 0 0 22px; fill: currentColor; }
+.theme-icon-moon { display: none; }
+:root[data-theme="light"] .theme-icon-sun { display: none; }
+:root[data-theme="light"] .theme-icon-moon { display: block; }
+.theme-toggle:focus-visible { outline: 2px solid var(--yellow); outline-offset: 4px; }
 .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
 
 .forecast-workspace,.levy-workspace { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.618fr); gap:var(--space-3); align-items:start; margin-top:var(--space-4); }
