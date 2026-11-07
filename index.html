@@ -77,12 +77,18 @@
         <div id="cards" class="cards levy-reference-cards"></div>
       </div>
     </section>
-    <section id="benchmarks" class="section">
-      <div class="section-head"><div><p class="eyebrow">PERFORMANCE</p><h2>Benchmarks</h2></div><p>Check how far the forecast can be trusted.</p></div>
-            <div class="panel accuracy-panel"><div class="panel-title"><h3>Model accuracy</h3><span class="badge">Held-out data</span></div>
-              <div class="forecast-stats"><div><b id="statMape">—</b><span>MAPE</span></div><div><b id="statRmse">—</b><span>RMSE</span></div><div><b id="statMae">—</b><span>MAE</span></div></div>
-              <p id="accuracyNote" class="small-note" aria-live="polite">Run a forecast to view accuracy.</p>
-            </div>
+<section id="benchmarks" class="section">
+      <div class="section-head"><div><p class="eyebrow">PERFORMANCE</p><h2>Benchmarks</h2></div><p>Check how far each model can be trusted.</p></div>
+      <div class="benchmark-grid">
+        <div class="panel accuracy-panel accuracy-arima"><div class="panel-title"><h3>ARIMA accuracy</h3><span class="badge">Held-out data</span></div>
+          <div class="forecast-stats"><div><b id="statMape">—</b><span>MAPE</span></div><div><b id="statRmse">—</b><span>RMSE</span></div><div><b id="statMae">—</b><span>MAE</span></div></div>
+          <p id="accuracyNote" class="small-note" aria-live="polite">Run a forecast to view accuracy.</p>
+        </div>
+        <div class="panel accuracy-panel accuracy-tree"><div class="panel-title"><h3>Regression tree accuracy</h3><span class="badge">Held-out data</span></div>
+          <div class="forecast-stats"><div><b id="treeMape">—</b><span>MAPE</span></div><div><b id="treeRmse">—</b><span>RMSE</span></div><div><b id="treeMae">—</b><span>MAE</span></div></div>
+          <p id="treeNote" class="small-note" aria-live="polite">Awaiting regression-tree output.</p>
+        </div>
+      </div>
     </section>
     <footer>Fiscal Lens</footer>
   </main>
