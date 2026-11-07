@@ -1,3 +1,0 @@
-/* LEGACY COMPATIBILITY: older pages may link style.css (singular).
-   This forwards to the canonical stylesheet. Do not link both files in index.html. */
-@import url('./styles.css');
