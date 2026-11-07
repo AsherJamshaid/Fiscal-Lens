@@ -3,228 +3,89 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fiscal Lens</title>
-  <link rel="stylesheet" href="base.css">
-  <link rel="stylesheet" href="layout.css">
-  <link rel="stylesheet" href="components.css">
+  <meta name="theme-color" content="#292b36">
+  <title>Fiscal Lens · Commodity & levy insights</title>
+  <link rel="stylesheet" href="styles.css">
+  <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <script src="data.js" defer></script>
+  <script src="app.js" defer></script>
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <div class="shell">
-
-  <!-- ============ SIDEBAR ============ -->
   <aside class="sidebar">
-    <a class="brand" href="#overview"><span class="brand-mark"></span>Fiscal Lens</a>
-    <nav class="nav" aria-label="Sections">
-      <a href="#overview" class="is-active">Overview</a>
-      <a href="#tracker">Commodity Tracker</a>
-      <a href="#levy">Levy Advisor</a>
-      <a href="#benchmarks">Benchmarks</a>
+    <a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true">F<span>l</span></span>Fiscal Lens<span class="brand-dot">.</span></a>
+    <p class="sidebar-label">WORKSPACE</p>
+    <nav class="nav" aria-label="Main navigation">
+      <a href="#overview" class="is-active" aria-current="location"><span>01</span>Overview</a>
+      <a href="#tracker"><span>02</span>Commodity Tracker</a>
+      <a href="#levy"><span>03</span>Levy Advisor</a>
+      <a href="#benchmarks"><span>04</span>Benchmarks</a>
     </nav>
+    <div class="sidebar-foot"><span class="status-dot"></span> Historical dataset</div>
   </aside>
-
-  <main class="main">
-
-    <!-- ============ OVERVIEW ============ -->
+  <main class="main" id="main" tabindex="-1">
     <section id="overview" class="section hero">
+      <div class="hero-tools"><button id="theme-toggle" class="theme-toggle" type="button">Light mode</button></div>
       <div class="hero-banner">
-        <h1>Forecast-led guidance for petroleum levy decisions</h1>
-        <p class="hero-lede">Fiscal Lens forecasts commodity prices and turns them into a recommended petroleum levy, balancing what households can afford against revenue targets and IMF commitments.</p>
+        <div><h1>Commodity trends.<br><em>Petroleum levy.</em></h1><p class="hero-lede">Track prices, compare historical inputs and review levy estimates.</p></div>
       </div>
-      <div class="hero-modules">
-        <a class="module-card cobalt" href="#tracker">
-          <h3>Commodity Tracker</h3>
-          <p class="muted">Forecasts oil, gold and other commodity prices from historical data, with the accuracy of every forecast reported.</p>
-          <div class="chips"><span class="chip">ARI time-series model</span><span class="chip">Levinson-Durbin</span><span class="chip">Automatic order selection</span></div>
-        </a>
-        <a class="module-card saffron" href="#levy">
-          <h3>Levy Advisor</h3>
-          <p class="muted">Recommends a levy band from forecast prices, affordability and fiscal targets, and shows how it reached the decision.</p>
-          <div class="chips"><span class="chip">Decision tree</span><span class="chip">Gini impurity</span><span class="chip">Transparent reasoning</span></div>
-        </a>
-      </div>
+      <div class="hero-modules"><a class="module-card cobalt" href="#tracker"><span class="eyebrow">MODULE 1</span><h3>Commodity Tracker <span aria-hidden="true">↗</span></h3><p>Project prices from historical inputs.</p></a><a class="module-card purple" href="#levy"><span class="eyebrow">MODULE 2</span><h3>Levy Advisor <span aria-hidden="true">↗</span></h3><p>Review levy estimates and fuel costs.</p></a></div>
     </section>
-
-    <!-- ============ MODULE 1: COMMODITY TRACKER ============ -->
     <section id="tracker" class="section">
-      <div class="section-head">
-        <span class="module-tag tag-cobalt">Module 1</span>
-        <h2>Commodity Tracker</h2>
-        <p class="muted">Choose a commodity and a forecast horizon. The model selects its own parameters from the data and reports its accuracy.</p>
-      </div>
-
-      <div class="workspace">
-        <!-- controls -->
-        <form class="panel accent-cobalt" id="trackerForm" onsubmit="return false">
-          <div class="field">
-            <label for="commodity">Commodity</label>
-            <select id="commodity">
-              <option value="crude_oil">Crude oil (Brent)</option>
-              <option value="gold">Gold</option>
-              <option value="copper">Copper</option>
-              <option value="natural_gas">Natural gas</option>
-            </select>
+      <div class="section-head"><div><p class="eyebrow blue">MARKET DATA</p><h2>Commodity Tracker</h2></div></div>
+      <div class="forecast-workspace">
+        <aside class="panel forecast-settings">
+          <h3>Forecast settings</h3>
+          <label class="field" for="forecastInput">Input series<select id="forecastInput"><option value="forecast_crude_price">Crude input</option><option value="usd_pkr">USD / PKR</option><option value="retail_petrol_price">Retail petrol</option></select></label>
+          <label class="field" for="forecastHorizon">Forecast window<select id="forecastHorizon"><option value="12">Next 12 observations</option><option value="24">Next 24 observations</option></select></label>
+          <label class="field" for="window">History window<select id="window"><option value="12">Latest 12 observations</option><option value="24">Latest 24 observations</option><option value="0">All observations</option></select></label>
+          <button class="btn" id="runForecast" type="button">Run forecast <span aria-hidden="true">↗</span></button>
+          <p class="small-note forecast-period-note">One observation = one dataset period.</p>
+        </aside>
+        <div class="forecast-stack">
+          <div class="panel" id="forecastPanel" aria-busy="false">
+            <div class="panel-title"><h3>Price forecast</h3><span class="badge" id="forecastUnit">Ready to run</span></div>
+            <p class="forecast-idle small-note" id="chartIdle">Choose an input and run the forecast.</p>
+            <div id="chartProgress" hidden><ol id="forecastSteps" class="forecast-steps" aria-label="Forecast progress"></ol></div>
+            <div class="chart" id="forecastPlot" hidden><svg id="forecastSvg" viewBox="0 0 1000 520" role="img" aria-label="Historical values and forecast"></svg></div>
+            <div id="forecastLegend" class="forecast-legend" hidden><span><i></i>History</span><span><i class="projection"></i>Forecast</span></div>
+            <p id="runSummary" class="small-note" role="status" aria-live="polite"></p>
           </div>
-          <div class="field">
-            <label for="horizon">Forecast horizon <output id="horizonOut">12 months</output></label>
-            <input type="range" id="horizon" min="1" max="36" value="12">
-          </div>
-          <button type="button" class="btn" id="runForecast">Run forecast</button>
-        </form>
-
-        <div class="stack">
-          <div class="panel">
-            <div class="panel-title"><h3>Price forecast</h3><span class="muted" id="forecastUnit">USD per barrel</span></div>
-            <div class="chart" id="forecastChart">
-              <!-- JS: draw history, forecast line and confidence band here (canvas or svg) -->
-              <div class="chart-empty">Select a commodity and run the forecast to view the projection.</div>
-            </div>
-            <div class="legend"><span><i class="hist"></i>History</span><span><i class="fc"></i>Forecast</span><span><i class="band"></i>Uncertainty range</span></div>
-          </div>
-
-          <!-- Shown after "Run forecast": JS removes the hidden attribute -->
-          <div class="stack" id="modelInfo" hidden>
-            <div class="panel">
-              <div class="panel-title"><h3>Selected model</h3><span class="muted">Parameters chosen automatically from the data</span></div>
-              <div class="stat-row">
-                <div class="stat"><b id="statOrder">4</b><span>AR order (p)</span></div>
-                <div class="stat"><b id="statDiff">1</b><span>Differencing (d)</span></div>
-                <div class="stat"><b id="statNext">$84.20</b><span>Next-month forecast</span></div>
-              </div>
-              <p class="muted" id="modelNote" style="margin-top:12px">The series was differenced once to remove the price trend. Orders 1 to 12 were then compared, and the one with the lowest <span id="critName">AIC</span> score was selected.</p>
-            </div>
-
-            <div class="panel">
-              <div class="panel-title"><h3>Model accuracy</h3><span class="muted" id="accuracyNote">Validated on the most recent 12 months, excluded from fitting</span></div>
-              <div class="stat-row">
-                <div class="stat"><b id="statMape">2.8%</b><span>Average error (MAPE)</span></div>
-                <div class="stat"><b id="statRmse">$3.10</b><span>RMSE</span></div>
-                <div class="stat"><b id="statMae">$2.40</b><span>MAE</span></div>
-              </div>
-            </div>
-
-            <div class="panel">
-              <div class="panel-title"><h3>Order selection</h3><span class="muted">Information criterion by order; lower is better</span></div>
-              <!-- JS: one <div> per order, set height by score, add class "best" to the minimum -->
-              <div class="bars" id="orderBars" aria-label="Score for each AR order">
-                <div style="height:100%"></div><div style="height:78%"></div><div style="height:55%"></div>
-                <div class="best" style="height:34%"></div><div style="height:41%"></div><div style="height:47%"></div>
-                <div style="height:52%"></div><div style="height:58%"></div>
-              </div>
+          <div id="modelInfo" class="forecast-stack" hidden>
+            <div class="panel"><div class="panel-title"><h3>Selected model</h3><span class="badge">ARI · Levinson–Durbin</span></div>
+              <div class="forecast-stats"><div><b id="statOrder">—</b><span>AR order (p)</span></div><div><b id="statDiff">—</b><span>Differencing (d)</span></div><div><b id="statNext">—</b><span>Next observation</span></div></div>
+              <p id="modelNote" class="small-note"></p>
             </div>
           </div>
         </div>
       </div>
     </section>
-
-    <!-- ============ MODULE 2: LEVY ADVISOR ============ -->
     <section id="levy" class="section">
-      <div class="section-head">
-        <span class="module-tag tag-saffron">Module 2</span>
-        <h2>Petroleum Levy Advisor</h2>
-        <p class="muted">Set the market and fiscal conditions. The decision tree assigns a levy band and shows the reasoning behind it.</p>
-      </div>
-
-      <div class="workspace">
-        <form class="panel accent-saffron levy-form" id="levyForm" onsubmit="return false">
-          <div class="field">
-            <label for="crudeForecast">Forecast crude price <output id="crudeOut">85 USD</output></label>
-            <input type="range" id="crudeForecast" min="40" max="150" value="85">
+      <div class="section-head"><div><p class="eyebrow purple-text">LEVY</p><h2>Petroleum Levy Advisor</h2></div></div>
+      <div class="levy-workspace">
+        <aside class="forecast-stack">
+          <div class="panel levy-recommendation"><div class="panel-title"><h3>Recommended levy</h3><span class="badge">PKR / litre</span></div>
+            <div class="metric" id="levyValue">—</div><p id="levyRecommendationNote" class="small-note">Awaiting regression-tree output.</p>
+            <div class="levy-band-scale" aria-label="Levy bands"><span data-band="low">Low</span><span data-band="moderate">Moderate</span><span data-band="high">High</span><span data-band="very-high">Very high</span></div>
           </div>
-          <div class="field">
-            <label for="affordability">Affordability index <output id="affordOut">0.55</output></label>
-            <input type="range" id="affordability" min="0" max="1" step="0.01" value="0.55">
+          <div class="panel"><div class="panel-title"><h3>Pump price build-up</h3><span class="badge">Historical</span></div>
+            <div id="buildup" class="price-buildup" role="img" aria-label="Historical pump price breakdown"></div>
+            <dl id="buildupKeys" class="buildup-keys"></dl><p id="buildupNote" class="small-note"></p>
           </div>
-          <div class="field">
-            <label for="fiscalTarget">Revenue target <output id="fiscalOut">1.2 trillion</output></label>
-            <input type="range" id="fiscalTarget" min="0.5" max="3" step="0.1" value="1.2">
-          </div>
-          <div class="field">
-            <label for="region">Fuel type</label>
-            <select id="region"><option>Petrol</option><option>Diesel</option><option>Kerosene</option></select>
-          </div>
-          <button type="button" class="btn saffron" id="runAdvisor">Generate recommendation</button>
-        </form>
-
-        <div class="stack">
-          <div class="panel">
-            <div class="panel-title"><h3>Recommended levy</h3><span class="muted" id="levyUnit">per litre</span></div>
-            <div class="levy-value" id="levyValue">PKR 60</div>
-            <div class="band-scale" id="levyBands" aria-label="Levy bands">
-              <span>Low</span><span class="is-on">Moderate</span><span>High</span><span>Very high</span>
-            </div>
-          </div>
-
-          <div class="two-col">
-            <div class="panel">
-              <div class="panel-title"><h3>Pump price build-up</h3></div>
-              <!-- JS: set each span width as a % of the final price -->
-              <div class="buildup" id="buildup" role="img" aria-label="Breakdown of the pump price">
-                <span class="seg-crude" style="width:46%"></span><span class="seg-refine" style="width:9%"></span>
-                <span class="seg-freight" style="width:6%"></span><span class="seg-margin" style="width:8%"></span>
-                <span class="seg-tax" style="width:9%"></span><span class="seg-levy" style="width:22%"></span>
-              </div>
-              <div class="keys">
-                <span><i class="seg-crude"></i>Crude</span><span><i class="seg-refine"></i>Refining</span>
-                <span><i class="seg-freight"></i>Freight</span><span><i class="seg-margin"></i>Margins</span>
-                <span><i class="seg-tax"></i>Taxes</span><span><i class="seg-levy"></i>Levy</span>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panel-title"><h3>Decision path</h3></div>
-              <!-- JS: one <li> per node on the prediction path; last one gets class "leaf" -->
-              <ol class="path" id="decisionPath">
-                <li>Forecast crude price above 80?  Yes</li>
-                <li>Affordability index below 0.6?  Yes</li>
-                <li>Revenue target above 1.0 trillion?  Yes</li>
-                <li class="leaf">Levy band: Moderate</li>
-              </ol>
-            </div>
-          </div>
-        </div>
+        </aside>
+        <div id="cards" class="cards levy-reference-cards"></div>
       </div>
     </section>
-
-    <!-- ============ BENCHMARKS ============ -->
     <section id="benchmarks" class="section">
-      <div class="section-head">
-        <h2>Benchmarks</h2>
-        <p class="muted">Each efficient algorithm is compared with a brute-force baseline on identical data. Timings are measured by the C++ backend.</p>
-      </div>
-
-      <div class="two-col">
-        <div class="panel">
-          <div class="panel-title"><h3>Fitting AR coefficients</h3><span class="big-o">O(p²) vs O(p³)</span></div>
-          <div class="race" id="raceAR">
-            <div class="race-row"><span>Levinson-Durbin</span><div class="race-bar"><span style="width:8%"></span></div><span>0.4 ms</span></div>
-            <div class="race-row"><span>Normal equations</span><div class="race-bar"><span class="slow" style="width:72%"></span></div><span>3.6 ms</span></div>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-title"><h3>Finding the best split</h3><span class="big-o">O(n log n) vs O(n²)</span></div>
-          <div class="race" id="raceSplit">
-            <div class="race-row"><span>Sort, then scan</span><div class="race-bar"><span style="width:12%"></span></div><span>1.1 ms</span></div>
-            <div class="race-row"><span>Unsorted scan</span><div class="race-bar"><span class="slow" style="width:85%"></span></div><span>8.5 ms</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-top:20px">
-        <div class="panel-title"><h3>Where each technique is used</h3></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Module</th><th>Technique</th><th>Why it is here</th><th>Complexity</th></tr></thead>
-            <tbody>
-              <tr><td>Tracker</td><td>Dynamic programming</td><td>Each AR order reuses the previous order's solution</td><td>O(p max²) for all orders</td></tr>
-              <tr><td>Tracker</td><td>Matrix solve</td><td>Brute-force baseline to compare against</td><td>O(p³) per order</td></tr>
-              <tr><td>Advisor</td><td>Greedy recursion</td><td>Each split is the best local choice, building a binary tree</td><td>O(n log n) per feature per node</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <div class="section-head"><div><p class="eyebrow">PERFORMANCE</p><h2>Benchmarks</h2></div><p>Check how far the forecast can be trusted.</p></div>
+            <div class="panel accuracy-panel"><div class="panel-title"><h3>Model accuracy</h3><span class="badge">Held-out data</span></div>
+              <div class="forecast-stats"><div><b id="statMape">—</b><span>MAPE</span></div><div><b id="statRmse">—</b><span>RMSE</span></div><div><b id="statMae">—</b><span>MAE</span></div></div>
+              <p id="accuracyNote" class="small-note" aria-live="polite">Run a forecast to view accuracy.</p>
+            </div>
     </section>
-
+    <footer>Fiscal Lens</footer>
   </main>
 </div>
-<script src="js/app.js"></script>
 </body>
 </html>
