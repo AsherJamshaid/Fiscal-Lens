@@ -9,7 +9,7 @@
 .nav { display: grid; gap: 8px; }
 .nav a { text-decoration: none; display: flex; align-items: center; gap: 13px; padding: 13px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0; font-size: .95rem; color: var(--muted); }
 .nav-icon { display: block; width: 20px; height: 20px; flex: 0 0 20px; fill: currentColor; }
-.nav a:hover { background: var(--surface); color: var(--text); }
+.nav a:hover { color: var(--text); } /* EDITS: background removed (replaced by cursor glow) */
 .nav a.is-active { color: var(--yellow); border-color: var(--yellow); background: #ffffff08; }
 .sidebar-foot { margin-top: auto; color: var(--muted); font-size: .85rem; padding: 21px 10px 0; }
 .sidebar-foot p { margin-top: 13px; }
@@ -20,11 +20,11 @@
 h1 em { font-weight: 700; font-style: normal; color: var(--yellow); } 
 .hero-lede { max-width: 49ch; color: var(--muted); margin-block: 16px 0; }
 .btn { display: inline-flex; align-items: center; gap: 34px; padding: 13px 21px; border: 0; border-radius: 8px; text-decoration: none; font-weight: 650; background: var(--yellow); color: var(--yellow-ink); }
-.btn:hover { background: #ffe097; }
+/* EDITS: removed .btn:hover background (replaced by cursor glow, see end of file) */
 
 .module-card { padding: 21px 26px; border: 1px solid var(--line); border-top: 2px solid var(--blue); border-radius: 12px; background: var(--surface); text-decoration: none; }
 .module-card.purple { border-top-color: var(--purple); }.module-card .eyebrow { color: var(--blue); }.module-card.purple .eyebrow { color: var(--purple); }
-.module-card h3 { margin-block: 8px; display: flex; justify-content: space-between; }.module-card p { color: var(--muted); font-size: 1rem; }.module-card:hover { background: #3b3f50; }
+.module-card h3 { margin-block: 8px; display: flex; justify-content: space-between; }.module-card p { color: var(--muted); font-size: 1rem; }/* EDITS: removed .module-card:hover background (replaced by cursor glow) */
 
 .panel,.card { padding: var(--space-3); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); min-width: 0; }
 .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 13px; margin-bottom: 21px; }
@@ -123,3 +123,31 @@ fieldset { padding: 0; margin: 0 0 21px; border: 0; min-width: 0; }legend { font
 .accuracy-tree { border-top:2px solid var(--purple); }
 .accuracy-tree .forecast-stats b { color:var(--purple); }
 @media(max-width:800px) { .benchmark-grid { grid-template-columns:1fr; } }
+
+/* EDITS: spacing for the Run recommendation button */
+.levy-recommendation .btn { margin-top: 21px; }
+
+/* EDITS START: cursor-following hover glow (position set by app.js via --mx / --my) */
+.btn,.theme-toggle,.module-card,.nav a { position: relative; isolation: isolate; overflow: hidden; }
+.btn { --glow: #fff; }                      /* yellow button: white-hot spot */
+.theme-toggle,.nav a { --glow: var(--yellow); }
+.module-card { --glow: var(--blue); }
+.module-card.purple { --glow: var(--purple); }
+.btn::before,.theme-toggle::before,.module-card::before,.nav a::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  opacity: 0; transition: opacity .25s ease;
+  /* subtle + wide: 240px = spread, 26% / 11% = intensity (raise for stronger glow) */
+  background: radial-gradient(circle 240px at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--glow) var(--glow-a, 26%), transparent) 0%,
+    color-mix(in srgb, var(--glow) var(--glow-b, 11%), transparent) 50%,
+    transparent 100%);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled)::before,.theme-toggle:hover::before,.module-card:hover::before,.nav a:hover::before { opacity: 1; }
+}
+/* EDITS END */
+
+/* EDITS START: light theme: tinted module cards with a bright white sheen glow */
+:root[data-theme="light"] .module-card { background: color-mix(in srgb, var(--blue) 8%, var(--surface)); --glow: #fff; --glow-a: 75%; --glow-b: 30%; }
+:root[data-theme="light"] .module-card.purple { background: color-mix(in srgb, var(--purple) 8%, var(--surface)); }
+/* EDITS END */

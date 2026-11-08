@@ -65,9 +65,15 @@
       <div class="section-head"><div><p class="eyebrow purple-text">LEVY</p><h2>Petroleum Levy Advisor</h2></div></div>
       <div class="levy-workspace">
         <aside class="forecast-stack">
-          <div class="panel levy-recommendation"><div class="panel-title"><h3>Recommended levy</h3><span class="badge">PKR / litre</span></div>
-            <div class="metric" id="levyValue">—</div><p id="levyRecommendationNote" class="small-note">Awaiting regression-tree output.</p>
-            <div class="levy-band-scale" aria-label="Levy bands"><span data-band="low">Low</span><span data-band="moderate">Moderate</span><span data-band="high">High</span><span data-band="very-high">Very high</span></div>
+          <!-- EDITS START: recommendation panel now has id, progress steps, result wrapper and run button -->
+          <div class="panel levy-recommendation" id="levyPanel" aria-busy="false"><div class="panel-title"><h3>Recommended levy</h3><span class="badge">PKR / litre</span></div>
+            <div id="levyProgress" hidden><ol id="levySteps" class="forecast-steps" aria-label="Regression tree progress"></ol></div>
+            <div id="levyResult">
+              <div class="metric" id="levyValue">—</div><p id="levyRecommendationNote" class="small-note">Run the recommendation to view.</p>
+              <div class="levy-band-scale" aria-label="Levy bands"><span data-band="low">Low</span><span data-band="moderate">Moderate</span><span data-band="high">High</span><span data-band="very-high">Very high</span></div>
+            </div>
+            <button class="btn" id="runLevy" type="button">Run recommendation <span aria-hidden="true">↗</span></button>
+          <!-- EDITS END -->
           </div>
           <div class="panel"><div class="panel-title"><h3>Pump price build-up</h3><span class="badge">Historical</span></div>
             <div id="buildup" class="price-buildup" role="img" aria-label="Historical pump price breakdown"></div>

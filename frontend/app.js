@@ -56,8 +56,9 @@ window.addEventListener('scroll', () => {
 window.addEventListener('resize', updateNavigation);
 updateNavigation();
 
-function renderLevySummary() {
-  const price=PREDICTIONS.find(p=>p.label==='Petrol price'), levy=PREDICTIONS.find(p=>p.label==='Petroleum levy');
+// EDITS START: recommendation display (moved from renderLevySummary), called when the animation finishes
+function renderLevyResult() {
+  const levy=PREDICTIONS.find(p=>p.label==='Petroleum levy');
   $('levyValue').textContent=Number.isFinite(levy?.forecast)?number(levy.forecast):'—';
   $('levyRecommendationNote').textContent=Number.isFinite(levy?.forecast)
     ? 'Regression-tree recommendation for '+levy.targetDate+'.' : 'Recommendation pending.';
@@ -66,6 +67,12 @@ function renderLevySummary() {
     el.classList.toggle('is-on',active);
     if(active) el.setAttribute('aria-current','true'); else el.removeAttribute('aria-current');
   });
+}
+// EDITS END
+
+function renderLevySummary() {
+  const price=PREDICTIONS.find(p=>p.label==='Petrol price'), levy=PREDICTIONS.find(p=>p.label==='Petroleum levy');
+  // EDITS: recommendation display moved out to renderLevyResult() (shown after the animation)
   $('buildup').replaceChildren(); $('buildupKeys').replaceChildren();
   if(!price || !levy || price.date!==levy.date || !(price.current>0) || !(levy.current>=0 && levy.current<=price.current)) {
     $('buildupNote').textContent='Matching dated price components are unavailable.'; return;
@@ -82,6 +89,38 @@ function renderLevySummary() {
 }
 renderLevySummary();
 
+// EDITS START: regression-tree progress animation (one step every STEP_MS, then reveals the answer)
+const STEP_MS = 1000; // time per step; change to speed up/slow down
+const TREE_STEPS = [  // step labels; edit freely
+  'Load ' + HISTORY.length + ' training rows',
+  'Search best split at each node',
+  'Grow and prune the tree',
+  'Route latest data to a leaf',
+  'Read levy from leaf'
+];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function runLevy() {
+  const btn=$('runLevy'), panel=$('levyPanel'), steps=$('levySteps');
+  btn.disabled=true; panel.setAttribute('aria-busy','true');
+  $('levyResult').hidden=true; $('levyProgress').hidden=false; steps.replaceChildren();
+  const rows = TREE_STEPS.map(t => {
+    const li=document.createElement('li'), name=document.createElement('span'), st=document.createElement('span');
+    li.dataset.state='waiting'; name.textContent=t; st.textContent='Waiting';
+    li.append(name,st); steps.append(li); return [li,st];
+  });
+  for (const [li,st] of rows) {
+    li.dataset.state='running'; st.textContent='Running';
+    await sleep(STEP_MS);
+    li.dataset.state='done'; st.textContent='Done';
+  }
+  await sleep(400);
+  $('levyProgress').hidden=true; $('levyResult').hidden=false;
+  renderLevyResult();
+  panel.setAttribute('aria-busy','false'); btn.disabled=false;
+}
+$('runLevy').addEventListener('click', runLevy);
+// EDITS END
+
 // Scroll fade-in
 if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
   const io = new IntersectionObserver(entries => entries.forEach(e => {
@@ -96,3 +135,16 @@ if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObse
   watchReveal();
   new MutationObserver(watchReveal).observe($('cards'), { childList: true });
 }
+
+// EDITS START: cursor-following glow (feeds --mx / --my to the CSS glow in components.css)
+const GLOW_SEL = '.btn,.module-card,.nav a,.theme-toggle';
+const moveGlow = e => {
+  const el = e.target.closest && e.target.closest(GLOW_SEL);
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty('--mx', e.clientX - r.left + 'px');
+  el.style.setProperty('--my', e.clientY - r.top + 'px');
+};
+document.addEventListener('pointermove', moveGlow, {passive:true});
+document.addEventListener('pointerover', moveGlow, {passive:true});
+// EDITS END
