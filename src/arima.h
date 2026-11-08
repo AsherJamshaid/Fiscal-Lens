@@ -2,6 +2,9 @@
 #include <string>
 #include <vector>
 
+double forecastMean(const std::vector<double>& prices_up_to_cutoff,
+                    int n_days);
+
 // CSV format: date,price (pehli line header). price <= 0 wali rows skip hoti hain.
 bool loadCSV(const std::string &path,
              std::vector<std::string> &dates,
