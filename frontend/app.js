@@ -90,7 +90,7 @@ function renderLevySummary() {
 renderLevySummary();
 
 // EDITS START: regression-tree progress animation (one step every STEP_MS, then reveals the answer)
-const STEP_MS = 2000; // time per step; change to speed up/slow down
+const STEP_MS = 50; // time per step; change to speed up/slow down
 const TREE_STEPS = [  // step labels; edit freely
   'Load ' + HISTORY.length + ' training rows',
   'Search best split at each node',
