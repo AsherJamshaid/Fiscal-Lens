@@ -27,9 +27,7 @@
   --yellow: #a67c00; --blue: #2f6fd0; --purple: #7a4fd0;
   --yellow-ink: #ffffff; --hero-top: 80%;
 }
-/* ADDED: hover colors that were hardcoded in components.css */
-:root[data-theme="light"] .btn:hover { background: #c99700; }
-:root[data-theme="light"] .module-card:hover { background: #eceef5; }
+/* EDITS: removed light-theme hover backgrounds for .btn and .module-card (replaced by the cursor glow in components.css) */
 
 /* ADDED: self-hosted hero font */
 @font-face { font-family:'Helvetica Local'; src:url("./assets/fonts/helvetica-light-587ebe5a59211.ttf") format("truetype"); font-weight:300; font-style:normal; font-display:swap; }
