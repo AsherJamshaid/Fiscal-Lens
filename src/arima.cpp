@@ -7,7 +7,7 @@
 #include "arima.h"
 using namespace std;
 
-static const int MIN_TRAIN = 20;
+const int MIN_TRAIN = 250;
 // x[t] = c + φ1·x[t-1] + φ2·x[t-2] + ... + φp·x[t-p] + e[t] -> general eq for AR(p)
 bool loadCSV(const string &path, vector<string> &dates, vector<double> &prices)
 {
@@ -90,7 +90,9 @@ vector<double> ARIMA::getCoefficients(const vector<double> &data, int p) const
     if (r[0] == 0.0)
         return vector<double>(p + 1, 0.0);
 
-    // Levinson-Durbin
+    // Single-pass Levinson-Durbin: each order m builds on order m-1.
+    // Order selection is done by rolling-window RMSE validation,
+    // not AIC/BIC.
     vector<double> phi(p + 1, 0.0);
     vector<double> phi_prev(p + 1, 0.0);
     double sigma2 = r[0];
@@ -117,7 +119,9 @@ vector<double> ARIMA::getCoefficients(const vector<double> &data, int p) const
 
     // coeffs[0] = intercept, coeffs[1]=phi1, coeffs[2]=phi2 ...
     vector<double> result(p + 1);
-    result[0] = mean; // intercept = mean
+    double sumPhi = 0.0;
+    for (int i = 1; i <= p; i++) sumPhi += phi[i];
+    result[0] = mean * (1.0 - sumPhi);
     for (int i = 1; i <= p; i++)
         result[i] = phi[i];
     return result;
