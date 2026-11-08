@@ -9,8 +9,6 @@
 #include <utility>
 #include <vector>
 
-static const int MIN_TRAIN = 20;
-
 int main()
 {
     std::ifstream brent_file("data/processed/brent_daily.csv");
@@ -46,10 +44,10 @@ int main()
     }
     std::sort(brent_rows.begin(), brent_rows.end());
 
-    std::ifstream levy_file("data/processed/levy_training.csv");
+    std::ifstream levy_file("data/levy_training.csv");
     if (!levy_file)
     {
-        std::cerr << "Could not open data/processed/levy_training.csv\n";
+        std::cerr << "Could not open data/levy_training.csv\n";
         return 1;
     }
 
@@ -69,7 +67,7 @@ int main()
     }
     if (levy_file.bad())
     {
-        std::cerr << "Error reading data/processed/levy_training.csv\n";
+        std::cerr << "Error reading data/levy_training.csv\n";
         return 1;
     }
 
@@ -93,15 +91,19 @@ int main()
             slice.push_back(brent_row.second);
         }
 
-        if (slice.size() < MIN_TRAIN)
+        if (slice.size() < static_cast<size_t>(MIN_TRAIN))
         {
             std::cerr << "Row " << i << " (" << cutoff << "): only "
                       << slice.size() << " rows of history, skipping\n";
-            output << cutoff << ",-1\n";
+            output << cutoff << ",\n";
             continue;
         }
 
         const double result = forecastMean(slice, 10);
+        const double baseline_rmse = ARIMA().baselineRMSE(slice);
+        std::cerr << "Row " << i << " (" << cutoff << "): forecast="
+                  << std::fixed << std::setprecision(2) << result
+                  << ", baseline_rmse=" << baseline_rmse << '\n';
         output << cutoff << ',' << result << '\n';
     }
 

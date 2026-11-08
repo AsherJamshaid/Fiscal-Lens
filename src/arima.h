@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 
+extern const int MIN_TRAIN;
+
 double forecastMean(const std::vector<double>& prices_up_to_cutoff,
                     int n_days);
 
@@ -25,6 +27,7 @@ public:
 
     int getBestP() const;       // -1 agar train nahi hua / data kam
     double getBestErr() const;  // validation avg RMSE (final model ka RMSE nahi)
+    double baselineRMSE(const std::vector<double> &data) const;
 
 private:
     // Step 1: log + difference
@@ -52,7 +55,6 @@ private:
     double testOneWindow(const std::vector<double> &data, int p, int trainEnd) const;
     double testAllWindows(const std::vector<double> &data, int p) const;
     int findBestP(const std::vector<double> &data);
-    double baselineRMSE(const std::vector<double> &data) const;
 
     int maxP;
     int days;
