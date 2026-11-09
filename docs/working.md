@@ -34,7 +34,7 @@ predicts a multiplier  ->  recommended levy = required_levy x multiplier
 6. `forecast_crude_price` = mean of the forecast for the next 10 trading days, using only data before the cutoff date (no look-ahead).
 
 **Outputs**
-- `data/crude_forecasts.csv` (columns `period_start,forecast_crude_price,history_rows,best_p`): one out-of-sample forecast per levy row, used to regenerate the training column and labels.
+- `data/processed/forecast_col.csv` (columns `period_start,forecast_crude_price`): one out-of-sample forecast per levy row, used to regenerate the training column and labels.
 - A callable `forecastMean(prices_up_to_cutoff, 10)` used by Module 2's live mode.
 - The dashboard Brent graph.
 
@@ -42,7 +42,7 @@ predicts a multiplier  ->  recommended levy = required_levy x multiplier
 
 ## 3. Module 2: Petroleum Levy Advisor (owner: Module 2 team)
 
-**Data file**: `data/levy_training.csv`, 70 fortnightly rows, ISO dates. Columns: `period_start, period_end, forecast_crude_price, affordability_index, levy_revenue_target_pkr_bn, fiscal_gap_pkr_bn, current_levy, retail_petrol_price, levied_volume_bn_litres, levy_value, levy_band` (`usd_pkr` is removed).
+**Data file**: `data/processed/levy_training.csv`, 70 fortnightly rows, ISO dates. Columns: `period_start, period_end, forecast_crude_price, affordability_index, levy_revenue_target_pkr_bn, fiscal_gap_pkr_bn, current_levy, retail_petrol_price, levied_volume_bn_litres, levy_value` (`usd_pkr` and `levy_band` are removed).
 
 **Tree**: a regression tree written in C++ (`RegressionTree`). It learns the multiplier, not the levy directly:
 - Features (8): `forecast_crude_price, affordability_index, levy_revenue_target_pkr_bn, fiscal_gap_pkr_bn, current_levy, retail_petrol_price, levied_volume_bn_litres, required_levy`.
@@ -65,7 +65,7 @@ stress              = affordability_index < 27.907      (40th percentile of the 
 high_crude          = forecast_crude_price > 80
 multiplier          = 0.80 (stress and high_crude) | 0.92 (stress only) | 0.95 (high_crude only) | 1.00
 levy_value          = clip(round(required_levy x multiplier, 1), 30, 85)     PKR/litre
-levy_band           = LOW if levy_value < 55; MEDIUM if < 70; else HIGH
+levy_band           = LOW if levy_value < 55; MEDIUM if < 70; else HIGH   (reporting/UI only; not in CSV)
 ```
 
 Where each piece is used:
@@ -100,17 +100,17 @@ Build (from `src/`, never compile one file alone): `g++ -std=c++17 -O2 Regressio
 - Neither mode writes to any CSV. Appending live rows is deliberately not done: they have no real label.
 
 **Debug checks that must always pass** (`backtest 2026-10-01`)
-- retail = 326.18, current_levy = 83.0, affordability = 24.933, multiplier = 0.800.
-- The levy will differ from the stored 63.4 by about 2.5 PKR/L because the carried volume (0.789) differs from that row's stored volume (0.82). This is expected.
+- stored crude = 116.060, retail = 326.18, current_levy = 83.0, affordability = 24.933, multiplier = 0.800.
+- The recommended levy (65.902) will differ from the stored 63.4 by about 2.5 PKR/L because the carried volume (0.789) differs from that row's stored volume (0.82). This is expected.
 
-## 7. Regenerating the training data (once Module 1 delivers)
+## 7. Regenerating the training data (completed for Module 2)
 
-1. Module 1 produces `data/crude_forecasts.csv` (out-of-sample forecasts, no look-ahead).
-2. The `forecast_crude_price` column in `levy_training.csv` is replaced with those values.
-3. The labels `levy_value` and `levy_band` are recomputed with the rule in section 4. Features and labels must always come from the same crude values.
-4. The 27.907 cut-off is checked: it depends only on `affordability_index`, so it changes only if that column changes.
-5. The default report is rerun and the before/after results recorded.
-6. Live mode's `--crude` is replaced by a direct call to Module 1's `forecastMean`.
+1. Module 1 delivered `data/processed/forecast_col.csv` (70 out-of-sample forecasts, no look-ahead).
+2. `scripts/regenerate_labels.py` replaced `forecast_crude_price` in `data/processed/levy_training.csv` with these values.
+3. Dropped `usd_pkr` and `levy_band`, while retaining `fiscal_gap_pkr_bn`. Old dataset backed up to `data/processed/levy_training_placeholder_crude.csv`.
+4. Label `levy_value` was recomputed with the rule in section 4 (40th percentile cutoff = 27.907). 13 rows changed in multiplier and levy.
+5. Rerun default report and backtest: walk-forward RMSE dropped from 2.740 to 1.262; test RMSE 0.671.
+6. Next step: replace live mode's `--crude` with a direct call to Module 1's `forecastMean`.
 
 ## 8. Limitations to state in the report
 
@@ -126,5 +126,5 @@ Build (from `src/`, never compile one file alone): `g++ -std=c++17 -O2 Regressio
 | Path | Owner |
 |---|---|
 | `src/arima.*`, Brent data, `data/crude_forecasts.csv`, generator tool | Module 1 |
-| `src/RegressionTree.*`, `src/LevyAdvisor.*`, `data/levy_training.csv`, `data/raw/petrol_price_buildup_fortnightly.csv`, `data/raw/cpi_and_income_monthly.csv` | Module 2 |
+| `src/RegressionTree.*`, `src/LevyAdvisor.*`, `data/processed/levy_training.csv`, `scripts/regenerate_labels.py`, raw petrol & cpi files | Module 2 |
 | `frontend/` (remove retail price and USD/PKR from `FEATURES` if not shown) | Frontend pair |

@@ -15,7 +15,7 @@ The repository contains C++ source, static frontend assets, CSV data, documentat
 |---|---|
 | `src/` | C++ implementation of the AR model, regression tree, levy input assembler, forecast-column generator, and `tree_test.exe`. |
 | `data/raw/` | Source-style daily/fortnightly/monthly data used to assemble or clean model inputs. |
-| `data/processed/` | Backend-consumable cleaned Brent data, levy training data, and generated forecast-column output. |
+| `data/processed/` | Backend-consumable cleaned Brent data, regenerated levy training data (`levy_training.csv`), placeholder crude backup (`levy_training_placeholder_crude.csv`), and generated forecast-column output (`forecast_col.csv`). |
 | `frontend/` | Static HTML/CSS/JavaScript dashboard and visual assets. |
 | `docs/` | Current system design notes and the original semester-project blueprint. |
 | `gen_forecast_col.exe` | Prebuilt forecast-column generator at repository root. |
@@ -48,7 +48,7 @@ target_multiplier = levy_value / required_levy
 recommended_levy = predicted_multiplier × required_levy
 ```
 
-With the checked-in data and existing `src/tree_test.exe`, the default run uses 56 training and 14 test rows, selects depth 3/minimum leaf 3, builds a 5-leaf tree, and reports test RMSE 0.679 PKR/litre, MAE 0.207, MAPE 0.292%, R² 0.977, and 14/14 band matches. These are rule-recovery results: the labels are synthetic/rule-based, not evidence of real-world forecasting accuracy.
+With the checked-in data and existing `src/tree_test.exe`, the default run uses 56 training and 14 test rows, selects depth 3/minimum leaf 3, builds a 5-leaf tree, and reports test RMSE 0.671 PKR/litre, MAE 0.383, MAPE 0.546%, R² 0.971, and 12/14 band matches (walk-forward RMSE on training rows is 1.262 vs previous-levy baseline 2.376). These are rule-recovery results: the labels are synthetic/rule-based, not evidence of real-world forecasting accuracy.
 
 ### CLI
 
@@ -64,7 +64,7 @@ g++ -std=c++17 -O2 RegressionTree.cpp LevyAdvisor.cpp -o tree_test.exe
 | `tree_test.exe live --crude <positive-number>` | Trains on all levy rows and produces a recommendation for the day after the latest petrol build-up period. The crude input is currently manual. |
 | `tree_test.exe backtest YYYY-MM-DD` | Trains only on earlier rows, reconstructs inputs as of the requested levy-row date, and compares the recommendation with the stored label. |
 
-The verified `backtest 2026-10-01` recommends 65.912 PKR/litre (MEDIUM) versus stored 63.400, an absolute error of 2.512. Its carried volume produces required levy 82.383 rather than the stored 79.268, which explains the difference.
+The verified `backtest 2026-10-01` recommends 65.902 PKR/litre (MEDIUM) versus stored 63.400, an absolute error of 2.502. Its carried volume produces required levy 82.383 rather than the stored 79.268, which explains the difference.
 
 ## Frontend
 
@@ -94,8 +94,8 @@ All CSVs are comma-delimited and have headers.
 | `data/raw/usd_pkr_daily.csv` | 783 rows, 2023-10-18–2026-10-16; rate 277.349–284.222, mean 279.997 | `date`; `usd_pkr` | Auxiliary source; no current C++ consumption. |
 | `data/raw/cpi_and_income_monthly.csv` | 37 rows, 2023-10–2026-10 | `month`; approximate CPI YoY %; CPI index (Oct-2023=100); monthly minimum wage. CPI index 100.000–129.110; wage 32,000–42,000 PKR. | Read by `LevyAdvisor` to calculate affordability. |
 | `data/raw/petrol_price_buildup_fortnightly.csv` | 71 rows, 2023-11-01–2026-10-15 | Start/end dates; import/refinery cost; OMC/dealer margins; IFEM; GST; petroleum and carbon levies; model retail price. Retail price 250.730–329.700 PKR/litre. | Read by `LevyAdvisor` to carry the prior retail price and calculate current levy. |
-| `data/processed/levy_training.csv` | 70 fortnightly rows, 2023-11-16–2026-10-01 | Dates; crude forecast; USD/PKR; affordability; revenue target; fiscal gap; current levy; retail price; levied volume; `levy_value`; `levy_band`. | Primary tree-training data. Levy values range 39.100–79.400 PKR/litre (LOW 16, MEDIUM 21, HIGH 33). |
-| `data/processed/forecast_col.csv` | 70 levy-period rows, 2023-11-16–2026-10-01; 48 numeric forecasts and 22 blank early rows | `period_start`; `forecast_crude_price` | Generator output intended to refresh the corresponding training-data crude feature. |
+| `data/processed/levy_training.csv` | 70 fortnightly rows, 2023-11-16–2026-10-01 | Dates; crude forecast (Module 1); affordability; revenue target; fiscal gap; current levy; retail price; levied volume; `levy_value`. | Primary tree-training data (`usd_pkr` and `levy_band` dropped). Levy values range 39.100–79.400 PKR/litre (derived bands: LOW 15, MEDIUM 25, HIGH 30). |
+| `data/processed/forecast_col.csv` | 70 levy-period rows, 2023-11-16–2026-10-01; all 70 numeric forecasts populated | `period_start`; `forecast_crude_price` | Generator output merged into `levy_training.csv` via `scripts/regenerate_labels.py`. |
 
 The eight active tree features are `forecast_crude_price`, `affordability_index`, `levy_revenue_target_pkr_bn`, `fiscal_gap_pkr_bn`, `current_levy`, `retail_petrol_price`, `levied_volume_bn_litres`, and derived `required_levy`. The training file also retains `usd_pkr`, but the loader does not use it. Key training-data ranges are: crude 57.720–100.530 USD/bbl, affordability 24.762–32.469, target 36.210–65.000 PKR bn, fiscal gap −8.910–8.380 PKR bn, current levy 60.000–83.000 PKR/litre, volume 0.710–0.838 bn litres, and retail price 250.730–329.700 PKR/litre.
 
@@ -117,7 +117,7 @@ affordability_index = min_wage / (40 × retail_price) × (100 / cpi_index) × 10
 1. `src/gen_forecast_col.cpp` tries to read `data/levy_training.csv`, but the checked-in file is `data/processed/levy_training.csv`; its output target is correct. The root-level prebuilt generator may therefore not reproduce successfully without a path fix or copied file.
 2. `docs/working.md` also names old locations (`data/levy_training.csv` and `data/crude_forecasts.csv`) and describes a four-column forecast output, while the actual output is `data/processed/forecast_col.csv` with two columns.
 3. The training loader requires rows to be chronologically sorted and requires the named primary columns. It accepts CSV or TSV, but does not handle quoted delimiters.
-4. `forecast_col.csv` has blank early forecasts because the generator skips periods with fewer than 250 prior Brent rows. It is not automatically merged into `levy_training.csv`, so its 48 forecasts do not currently alter the trained tree.
+4. (Resolved) `forecast_col.csv` provides numeric forecasts for all 70 rows; `scripts/regenerate_labels.py` merged these forecasts into `data/processed/levy_training.csv`, dropped `usd_pkr` and `levy_band`, and recomputed `levy_value`. Backup of the old data is retained at `data/processed/levy_training_placeholder_crude.csv`.
 5. `LevyAdvisor` can call neither `forecastMean` nor the tracker directly in live mode; it requires `--crude`. The requested backend-to-frontend mechanism is likewise absent.
 6. Levy labels are intentionally synthetic. Small sample size (70 rows), carry-forward volume assumptions, threshold sensitivity around crude price 80, and retail-price circularity limit any policy interpretation.
 
