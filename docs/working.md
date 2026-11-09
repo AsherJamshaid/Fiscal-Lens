@@ -42,7 +42,7 @@ predicts a multiplier  ->  recommended levy = required_levy x multiplier
 
 ## 3. Module 2: Petroleum Levy Advisor (owner: Module 2 team)
 
-**Data file**: `data/processed/levy_training.csv`, 70 fortnightly rows, ISO dates. Columns: `period_start, period_end, forecast_crude_price, affordability_index, levy_revenue_target_pkr_bn, fiscal_gap_pkr_bn, current_levy, retail_petrol_price, levied_volume_bn_litres, levy_value` (`usd_pkr` and `levy_band` are removed).
+**Data file**: `data/processed/levy_training.csv`, 70 fortnightly rows, ISO dates. Columns: `period_start, period_end, forecast_crude_price, affordability_index, levy_revenue_target_pkr_bn, fiscal_gap_pkr_bn, current_levy, retail_petrol_price, levied_volume_bn_litres, levy_value` (`usd_pkr` and `levy_band` are removed). `levy_training_real.csv` is a separate, mixed-provenance candidate dataset and is not loaded by the current executable; see `Data_Readme.md` for its column-level sources and assumptions.
 
 **Tree**: a regression tree written in C++ (`RegressionTree`). It learns the multiplier, not the levy directly:
 - Features (8): `forecast_crude_price, affordability_index, levy_revenue_target_pkr_bn, fiscal_gap_pkr_bn, current_levy, retail_petrol_price, levied_volume_bn_litres, required_levy`.
@@ -61,7 +61,7 @@ predicts a multiplier  ->  recommended levy = required_levy x multiplier
 ```
 required_levy       = levy_revenue_target_pkr_bn / levied_volume_bn_litres
 affordability_index = min_wage_pkr_month / (40 L x retail_petrol_price) x (100 / cpi_index) x 10
-stress              = affordability_index < 27.907      (40th percentile of the 70 rows)
+stress              = affordability_index < 27.907      (40th percentile of the checked-in `levy_training.csv` rows)
 high_crude          = forecast_crude_price > 80
 multiplier          = 0.80 (stress and high_crude) | 0.92 (stress only) | 0.95 (high_crude only) | 1.00
 levy_value          = clip(round(required_levy x multiplier, 1), 30, 85)     PKR/litre
@@ -115,7 +115,7 @@ Build (from `src/`, never compile one file alone): `g++ -std=c++17 -O2 Regressio
 ## 8. Limitations to state in the report
 
 - The label is a rule we wrote, so a high score means the tree recovered our rule, not that it predicts real levies.
-- All commodity and levy data is simulated or model-implied until replaced with real sources (EIA/FRED, SBP, PBS, OGRA, IMF staff reports).
+- The checked-in training data and labels remain model-implied. `levy_training_real.csv` adds supplied CPI, petrol-price, and fuel-sales observations, but is still mixed-provenance: its targets, levy schedule, crude forecasts, volume allocation, fiscal gap, and labels require the qualifications in `Data_Readme.md`.
 - The recommendation hinges on the crude forecast crossing 80 USD/bbl; a forecast just below or above flips the multiplier and the band.
 - Next fortnight's volume is unknown; carrying the latest value adds error.
 - Only 70 rows and 14 test rows: small differences between models mean nothing.

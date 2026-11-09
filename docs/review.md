@@ -96,6 +96,7 @@ All CSVs are comma-delimited and have headers.
 | `data/raw/petrol_price_buildup_fortnightly.csv` | 71 rows, 2023-11-01–2026-10-15 | Start/end dates; import/refinery cost; OMC/dealer margins; IFEM; GST; petroleum and carbon levies; model retail price. Retail price 250.730–329.700 PKR/litre. | Read by `LevyAdvisor` to carry the prior retail price and calculate current levy. |
 | `data/processed/levy_training.csv` | 70 fortnightly rows, 2023-11-16–2026-10-01 | Dates; crude forecast (Module 1); affordability; revenue target; fiscal gap; current levy; retail price; levied volume; `levy_value`. | Primary tree-training data (`usd_pkr` and `levy_band` dropped). Levy values range 39.100–79.400 PKR/litre (derived bands: LOW 15, MEDIUM 25, HIGH 30). |
 | `data/processed/forecast_col.csv` | 70 levy-period rows, 2023-11-16–2026-10-01; all 70 numeric forecasts populated | `period_start`; `forecast_crude_price` | Generator output merged into `levy_training.csv` via `scripts/regenerate_labels.py`. |
+| `levy_training_real.csv` | 70 fortnightly rows, 2023-11-16–2026-10-15 | Same ten-column schema as `levy_training.csv`; supplied CPI, petrol-price, and energy-sales inputs plus calculated fields. | Standalone candidate file; not read by the current executable. It is mixed-provenance, not a wholly observed dataset. See `Data_Readme.md`. |
 
 The eight active tree features are `forecast_crude_price`, `affordability_index`, `levy_revenue_target_pkr_bn`, `fiscal_gap_pkr_bn`, `current_levy`, `retail_petrol_price`, `levied_volume_bn_litres`, and derived `required_levy`. The training file also retains `usd_pkr`, but the loader does not use it. Key training-data ranges are: crude 57.720–100.530 USD/bbl, affordability 24.762–32.469, target 36.210–65.000 PKR bn, fiscal gap −8.910–8.380 PKR bn, current levy 60.000–83.000 PKR/litre, volume 0.710–0.838 bn litres, and retail price 250.730–329.700 PKR/litre.
 
@@ -110,6 +111,7 @@ affordability_index = min_wage / (40 × retail_price) × (100 / cpi_index) × 10
 | File | Content |
 |---|---|
 | `docs/working.md` | Most current operating design: data flow, formulas, labels, CLI modes, validation plan, regeneration steps, ownership, and limitations. |
+| `Data_Readme.md` | Column-level provenance, source list, formulas, estimates, carry-forwards, and limitations for `levy_training_real.csv`. |
 | `docs/dsa-project-blueprint.md` | Original course/project proposal: scope, stack alternatives, source ideas, algorithms, complexity justification, and planned structure. |
 
 ## Current integration and maintenance gaps
@@ -120,6 +122,7 @@ affordability_index = min_wage / (40 × retail_price) × (100 / cpi_index) × 10
 4. (Resolved) `forecast_col.csv` provides numeric forecasts for all 70 rows; `scripts/regenerate_labels.py` merged these forecasts into `data/processed/levy_training.csv`, dropped `usd_pkr` and `levy_band`, and recomputed `levy_value`. Backup of the old data is retained at `data/processed/levy_training_placeholder_crude.csv`.
 5. `LevyAdvisor` can call neither `forecastMean` nor the tracker directly in live mode; it requires `--crude`. The requested backend-to-frontend mechanism is likewise absent.
 6. Levy labels are intentionally synthetic. Small sample size (70 rows), carry-forward volume assumptions, threshold sensitivity around crude price 80, and retail-price circularity limit any policy interpretation.
+7. `levy_training_real.csv` is deliberately not substituted for the checked-in training file: it retains unverified carried-forward targets, levy rates, and forecast inputs, and estimates volume allocation and fiscal gap. `Data_Readme.md` is the authoritative disclosure before it is used in analysis or a demo.
 
 ## Practical state
 
