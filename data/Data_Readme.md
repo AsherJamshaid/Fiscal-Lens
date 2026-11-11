@@ -8,12 +8,12 @@ The table below is the definitive classification of every column.
 
 | Column | Classification | How it was obtained | Can it be described as observed real-world data? |
 |---|---|---|---|
-| `period_start`, `period_end` | Carried forward | Copied from `data/processed/levy_training.csv` to preserve its 70 fortnightly periods. | Calendar dates are real; they are not observations from a supplied report. |
+| `period_start`, `period_end` | Carried forward / appended | Originally copied from `data/processed/levy_training.csv` (70 fortnights) and extended with 1 appended fortnight (2026-10-16 to 2026-10-31), totaling 71 periods. | Calendar dates are real; they are not observations from a supplied report. |
 | `forecast_crude_price` | Pre-existing model output | Matched by `period_start` from `data/processed/forecast_col.csv`. | Not a market observation. It is a forecast derived earlier by the project's Brent model. Its upstream provenance was not independently audited in this task. |
 | `affordability_index` | Calculated | Calculated from the supplied CPI file, supplied wage-history image, and supplied petrol prices. | No - it is a constructed indicator, but its inputs and formula are explicit. |
 | `levy_revenue_target_pkr_bn` | Carried forward / unverified | Copied as fiscal-year constants from the existing training file. | No. No source document for these targets was supplied or independently verified. |
 | `fiscal_gap_pkr_bn` | Calculated estimate | Target minus levy multiplied by the estimated levied volume. | No. It is not a reported government fiscal balance. |
-| `current_levy` | Carried forward / unverified | Retained as the existing rate schedule: 60.0, 70.0, 77.5, then 83.0 PKR/litre. | No. The schedule was not verified against notified government price build-ups in this task. |
+| `current_levy` | Carried forward / unverified / notified | Retained as the existing rate schedule (60.0, 70.0, 77.5, 83.0 PKR/litre), with the new 2026-10-16 fortnight using 85.0 PKR/litre (notified petroleum levy 80.0 + climate levy 5.0). | No. Earlier rates were not verified against notified government price build-ups in this task; the 85.0 rate reflects notified 80 + 5. |
 | `retail_petrol_price` | Direct observation, aligned to fortnight | Pakistan value from the supplied weekly petrol-price file; the latest observation on or before each fortnight end was used. | Yes, subject to the source file's own methodology. |
 | `levied_volume_bn_litres` | Estimated from reported sales | Annual or quarterly OCAC MS and HSD sales were converted to litres and allocated evenly across calendar days. | The reported tonnes are source data; the conversion, allocation, and 2026 annualisation are estimates. |
 | `levy_value` | Synthetic label | Recomputed with the rule in `docs/working.md`. | No. It is not an observed petroleum levy. |
@@ -49,7 +49,7 @@ The table below is the definitive classification of every column.
 ### Project files used as definitions or carry-forward sources
 
 - `data/processed/levy_training.csv`
-  - Defines the required schema, the 70 period dates, revenue-target constants, and current-levy schedule.
+  - Defines the required schema, the 71 period dates (through 2026-10-31), revenue-target constants, and current-levy schedule.
 
 - `data/processed/forecast_col.csv`
   - Provides the existing model-generated crude forecast for each exact period.
@@ -72,13 +72,15 @@ These reports contain monthly import/export quantities, not a crude-price series
 
 ### Periods and petrol prices
 
-The output retains the 70 existing fortnightly periods from 2023-11-16 through 2026-10-15. For each row, the petrol price is:
+The output contains 71 fortnightly periods from 2023-11-16 through 2026-10-31. For each row, the petrol price is:
 
 ```text
 latest Pakistan weekly price with Period End <= period_end
 ```
 
 This is an alignment convention. It uses an actual weekly observation, but it is not necessarily the retail price known at the *start* of the fortnight.
+
+For the appended fortnight (2026-10-16 to 2026-10-31), the retail petrol price is 379.34 PKR/litre, which is the latest Pakistan weekly observation on or before 2026-10-31 (observed on 29 Oct 2026; preceding weekly values were 395.3 on 15 Oct, 380.74 on 22 Oct, and 379.34 on 29 Oct).
 
 ### CPI index reconstruction
 
@@ -95,6 +97,8 @@ CPI_index[Oct-2023] = 100
 ```
 
 This normalizes the supplied month-on-month CPI information; it does not claim to reproduce an official base-year CPI index.
+
+For the appended fortnight row ending 2026-10-31, the Oct 2026 MoM change of 0.011 from the supplied CPI file is chained to yield a normalized CPI index of 127.868.
 
 ### Affordability index
 
@@ -159,7 +163,21 @@ multiplier = 0.80  if stress and high_crude
 levy_value = clip(round(required_levy x multiplier, 1), 30, 85)
 ```
 
-The calculated 40th-percentile affordability cut-off from the output values is 29.2176.
+The calculated 40th-percentile affordability cut-off recomputed over all 71 rows is 28.7910 (previously 29.2176 over 70 rows).
+
+## 71st row provenance (2026-10-16 to 2026-10-31)
+
+The appended 71st row reflects the following sources and classification of inputs:
+
+- `period_start` (2026-10-16) and `period_end` (2026-10-31): Fortnightly calendar dates.
+- `forecast_crude_price` (126.61): Pre-existing model forecast matched by `period_start` from `data/processed/forecast_col.csv` (Module 1).
+- `retail_petrol_price` (379.34): Direct observation, latest Pakistan weekly price on or before 2026-10-31 (the 29 Oct 2026 observation; preceding weekly prices were 395.3 on 15 Oct, 380.74 on 22 Oct, and 379.34 on 29 Oct).
+- `current_levy` (85.0): Notified petroleum levy 80.0 + climate levy 5.0 PKR/litre.
+- `levy_revenue_target_pkr_bn` (65.0): Carried forward FY2026-27 constant from the preceding row.
+- `levied_volume_bn_litres` (0.812): Estimated volume using the documented annualised FY2026-27 OCAC sales method: (annual MS litres + annual HSD litres) x 16 days / 365 / 1e9 = 0.811773 bn litres, rounded to 0.812.
+- `fiscal_gap_pkr_bn` (-4.0): Calculated estimate as target - current_levy x volume = 65.0 - 85.0 x 0.811773 = -4.00 PKR bn.
+- `affordability_index` (20.977): Calculated as min_wage / (40 x retail_petrol_price) x (100 / cpi_index) x 10, using federal min_wage = 40,700 PKR/month and Oct 2026 chained CPI index = 127.868.
+- `levy_value` (64.0): Synthetic training label generated by `scripts/regenerate_labels.py` (with stress=True since 20.977 < 28.791, high_crude=True since 126.61 > 80, multiplier=0.80, required_levy=65.0/0.812=80.049, clipped product=64.0).
 
 ## What is carried forward or assumed
 
