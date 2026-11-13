@@ -1,102 +1,129 @@
-# Fiscal-Lens: How the System Works
+# Fiscal Lens: How the System Works
 
-Status (12 Nov 2026): Module 1 and Module 2 are built and linked through CSV files. The frontend is not yet connected to the C++ backend (no WASM or API bridge). The repo README is not yet maintained.
+Updated 14 Nov 2026.
 
-## 1. Big picture
+**Scope of this file:** method, formulas, parameters, commands, the data-update procedure, model limitations, and DSA complexity.
+**Not here:** data sources and column provenance (see `data/Data_Readme.md`); model scores and benchmarks (see `docs/model_metrics.md`); repository structure, ownership and project status (see `docs/review.md`).
+
+## 1. Pipeline overview
 
 ```
-Brent daily prices (Module 1 data)
+Brent daily prices
    |  Module 1: log -> difference once -> AR(p) via Levinson-Durbin -> forecast
    v
 forecast_crude_price = mean of the next 10 trading days of forecasted Brent (USD/bbl)
-   |  (only link between the modules)
+   |  (the only link between the modules)
    v
-Module 2: one input row for a fortnight, then the regression tree
-predicts a multiplier  ->  recommended levy = required_levy x multiplier
+Module 2: one input row for a fortnight -> regression tree predicts a multiplier
+   v
+recommended levy = required_levy x multiplier
 ```
 
-- Only Brent feeds Module 2. Module 1 does not track retail petrol price. USD/PKR is not used by Module 2.
-- No live data feeds, no database. Everything is read from CSV files.
-- The levy labels are synthetic (see section 8). The input columns are mixed-provenance real data (see `data/Data_Readme.md`).
-- The modules are linked by files and run by hand. No single program runs the whole pipeline (see section 7).
+- Only Brent feeds Module 2. Module 1 does not forecast retail petrol price. USD/PKR is not used anywhere in Module 2.
+- No live data feeds and no database. Everything is read from CSV files.
+- The modules are linked by files and run by hand. No single program runs the whole pipeline (section 4).
 
-## 2. Module 1: Commodity Trend Tracker (owner: Module 1 team)
+## 2. Module 1: Commodity Trend Tracker
 
-**What it does**
-- Forecasts Brent crude and shows it on the dashboard graph (once the frontend is connected).
-- Provides one number to Module 2: `forecast_crude_price`.
+**Purpose:** forecast Brent crude, and supply `forecast_crude_price` to Module 2.
 
-**How**
+### 2.1 Method
+
 1. Load Brent daily prices (`date,price`).
-2. Take logs, difference once (the "I" in ARI) to remove the trend.
-3. Fit AR(p) on the differenced series: `x[t] = c + phi1*x[t-1] + ... + phip*x[t-p] + e[t]`. Coefficients come from the Yule-Walker equations solved with the Levinson-Durbin recursion, O(p^2) per order (naive normal equations are O(p^3)).
-4. Choose p by rolling-window validation on past data (current implementation). The blueprint planned AIC/BIC; the final choice must be stated in the report.
+2. Take logs, then difference once (the "I" in ARI) to remove the trend.
+3. Fit AR(p) on the differenced series: `x[t] = c + phi1*x[t-1] + ... + phip*x[t-p] + e[t]`. Coefficients come from the Yule-Walker equations solved with the Levinson-Durbin recursion, O(p^2) per order (the naive normal-equations solve is O(p^3)).
+4. Choose p from 1..maxP by rolling-window RMSE on past data. The blueprint planned AIC/BIC; the report must state that rolling validation is what was implemented.
 5. Forecast recursively, add the predicted differences back onto the last known log price, then take the antilog.
-6. `forecast_crude_price` = mean of the forecast for the next 10 trading days, using only data before the cutoff date (no look-ahead).
+6. `forecast_crude_price` = mean of the next 10 forecasted trading days, using only data before the cutoff date (no look-ahead).
 
-**Outputs**
-- `data/processed/forecast_col.csv` (columns `period_start,forecast_crude_price`): one out-of-sample forecast per levy row.
-- A callable `forecastMean(prices_up_to_cutoff, 10)`. Module 2's live mode does not call it yet; it takes the value from `--crude`.
-- The dashboard Brent graph.
+### 2.2 Settings
 
-**Benchmark (report)**: Levinson-Durbin vs naive solver across p and n; the coefficients must match before timings are compared.
+- `ARIMA` class defaults: `maxP = 10`, validation horizon 30 days, validation step 7 days, first validation window at 700 rows.
+- `forecastMean` overrides these: validation horizon = forecast horizon (10 days), first window at `MIN_TRAIN` = 250 rows, step 7. It returns -1 if there is too little data.
 
-## 3. Module 2: Petroleum Levy Advisor (owner: Module 2 team)
+### 2.3 Outputs
 
-**Data file**: `data/processed/levy_training.csv`, the real-data (mixed-provenance) version, fortnightly rows, ISO dates, sorted oldest to newest. Columns: `period_start, period_end, forecast_crude_price, affordability_index, levy_revenue_target_pkr_bn, fiscal_gap_pkr_bn, current_levy, retail_petrol_price, levied_volume_bn_litres, levy_value`. Column-by-column provenance, formulas and carried or estimated values are in `data/Data_Readme.md`; do not describe the file as fully real or fully official. Coverage: 70 rows from 2023-11-16 to 2026-10-15; a row for 2026-10-16 to 2026-10-31 is being added (section 7).
+- `data/processed/forecast_col.csv`: one out-of-sample forecast per levy period (generated by `gen_forecast_col`).
+- `forecastMean(prices_up_to_cutoff, 10)`: callable, but Module 2's live mode does not use it yet (it takes `--crude`).
+- The dashboard Brent graph (once the frontend is connected).
 
-**Tree**: a regression tree written in C++ (`RegressionTree`). It learns the multiplier, not the levy directly:
+### 2.4 Commands and checks
+
+Run from the repo root (the generator reads `data/processed/...` relative to it).
+
+```
+g++ -std=c++17 -O2 src/arima.cpp src/gen_forecast_col.cpp -o gen_forecast_col.exe
+.\gen_forecast_col.exe
+```
+
+| Command | Behaviour |
+|---|---|
+| `.\gen_forecast_col.exe` | Rewrites `data/processed/forecast_col.csv`: one forecast per `period_start` in `levy_training.csv`, using only Brent rows before that date. Prints each row's forecast and baseline RMSE to the console. Takes about a second. |
+
+**Checks after any Brent-data or code change**
+- `forecast_col.csv` has one row per levy row, with no empty or -1 forecasts (`regenerate_labels.py` stops on them).
+- Regenerating on unchanged data reproduces the current file exactly (checked on the current data).
+- Re-score the forecast and update the Module 1 numbers in `docs/model_metrics.md`.
+
+### 2.5 Benchmark (for the report)
+
+Levinson-Durbin vs the naive solver across p and n. The coefficients must match before timings are compared.
+
+## 3. Module 2: Petroleum Levy Advisor
+
+### 3.1 Model and testing
+
+**Model:** a regression tree written in C++ (`RegressionTree`). It learns the multiplier, not the levy directly.
 - Features (8): `forecast_crude_price, affordability_index, levy_revenue_target_pkr_bn, fiscal_gap_pkr_bn, current_levy, retail_petrol_price, levied_volume_bn_litres, required_levy`.
-- Split: for each feature, sort the rows, sweep the cut point with running sums, and pick the split with the lowest SSE (`SSE = sum(y^2) - (sum y)^2 / n`). Greedy, recursive, no backtracking. Leaves predict the mean. Cost is O(n log n) per feature per node because of the sort.
-- Final levy: `required_levy x predicted multiplier`.
+- Split search: for each feature, sort the rows, sweep the cut point keeping running sums, and pick the split with the lowest SSE (`SSE = sum(y^2) - (sum y)^2 / n`). Greedy, recursive, no backtracking. Leaves predict the mean of their rows.
+- Output: `levy = required_levy x predicted multiplier`.
 
 **Testing (default report, no arguments)**
 - Chronological split: oldest 80% train, newest 20% test. Never shuffled.
-- Depth and leaf size are chosen by walk-forward validation on training rows only.
+- Depth and minimum leaf size are chosen by walk-forward validation on training rows only.
 - Baselines on the same test rows: training mean, previous levy, current levy.
-- A shuffled-split run as a diagnostic that the tree recovers the rule; it is not a forecast.
-- Error metrics are reported as RMSE/MAE in PKR per litre, not as "accuracy".
+- A shuffled-split run, as a diagnostic that the tree recovers the rule (not a forecast).
+- Errors are reported as RMSE/MAE in PKR per litre, never as "accuracy".
+- Band match (report output only, not part of the label): a levy is bucketed LOW (< 55), MEDIUM (< 70) or HIGH.
 
-## 4. Formulas
-
-```
-required_levy       = levy_revenue_target_pkr_bn / levied_volume_bn_litres
-affordability_index = min_wage_pkr_month / (40 L x retail_petrol_price) x (100 / cpi_index) x 10
-stress              = affordability_index < 40th percentile of affordability_index over all rows
-high_crude          = forecast_crude_price > 80
-multiplier          = 0.80 (stress and high_crude) | 0.92 (stress only) | 0.95 (high_crude only) | 1.00
-levy_value          = clip(round(required_levy x multiplier, 1), 30, 85)     PKR/litre
+### 3.2 Formulas
 
 ```
+required_levy = levy_revenue_target_pkr_bn / levied_volume_bn_litres
+stress        = affordability_index < 40th percentile of affordability_index over all rows
+high_crude    = forecast_crude_price > 80
+multiplier    = 0.80 (stress and high_crude) | 0.92 (stress only) | 0.95 (high_crude only) | 1.00
+levy_value    = clip(round(required_levy x multiplier, 1), 30, 85)     PKR/litre
+```
 
-- The stress cut-off is recomputed by `scripts/regenerate_labels.py` on every run. It was 27.907 on the earlier synthetic file and 29.2176 on the 70-row real-data file; it changes whenever rows are added.
-- Wage is the fiscal-year minimum wage (FY2026-27: 40,700); CPI is the index rebuilt from monthly changes (Oct 2023 = 100).
-- Crude forecast: used only in `high_crude`. Retail price: used through `affordability_index`, which drives `stress`.
+- `affordability_index` is a data column; its formula is in `data/Data_Readme.md`.
+- The stress cut-off is recomputed by `scripts/regenerate_labels.py` on every run, so it moves whenever rows are added (current value in `data/Data_Readme.md`).
+- The crude forecast enters the label only through `high_crude`. Retail price enters only through `affordability_index`, which drives `stress`.
 - `levy_value` is the training label only. It is never an input and is not computed for live rows.
 
-## 4a. Parameters (model inputs and what they do)
+### 3.3 Parameters
 
 Units: PKR = Pakistani rupees; bn = billion. All rows are fortnightly.
 
 | Parameter | Unit | Meaning | Role in the model |
 |---|---|---|---|
-| `forecast_crude_price` | USD/bbl | Mean of Module 1's Brent forecast for the next 10 trading days (no look-ahead). The only Module 1 -> Module 2 link. | Label rule: `high_crude` (> 80). Also a tree feature. |
-| `retail_petrol_price` | PKR/litre | Latest weekly Pakistan pump price on or before the period end. Already includes the levy. | Label rule: only through `affordability_index`. Also a tree feature. |
-| `affordability_index` | index | Minimum wage buys how many 40-litre tanks, adjusted by CPI (formula in section 4). Higher = fuel is more affordable. | Label rule: `stress` (below the 40th percentile). Main driver of the multiplier. |
-| `levy_revenue_target_pkr_bn` | PKR bn per fortnight | Revenue the levy is meant to collect in the fortnight (the fiscal/IMF target). Constant within a fiscal year. | Label rule: sets `required_levy`. Tree feature. |
-| `levied_volume_bn_litres` | bn litres per fortnight | Estimated petrol + diesel sold in the fortnight. | Label rule: sets `required_levy`. Tree feature. |
-| `required_levy` | PKR/litre | `target / volume`: the levy that would exactly hit the target. Derived, never stored in the CSV. | Scale of the output: `levy = required_levy x multiplier`. Tree feature. |
+| `forecast_crude_price` | USD/bbl | Mean of Module 1's 10-day Brent forecast. | Label rule (`high_crude`); tree feature. |
+| `retail_petrol_price` | PKR/litre | Latest weekly Pakistan pump price on or before the period end. Already includes the levy. | Label rule only through `affordability_index`; tree feature. |
+| `affordability_index` | index | How many 40-litre tanks the minimum wage buys, CPI-adjusted. Higher = more affordable. | Label rule (`stress`); main driver of the multiplier. |
+| `levy_revenue_target_pkr_bn` | PKR bn | Revenue the levy should collect in the fortnight (fiscal/IMF target). Constant within a fiscal year. | Sets `required_levy`; tree feature. |
+| `levied_volume_bn_litres` | bn litres | Estimated petrol and diesel sold in the fortnight. | Sets `required_levy`; tree feature. |
+| `required_levy` | PKR/litre | `target / volume`: the levy that would exactly hit the target. Derived, not stored in the CSV. | Scale of the output; tree feature. |
 | `current_levy` | PKR/litre | Total levy in force (petroleum levy + climate levy). | Not in the label rule. Tree feature and the "status quo" baseline. |
-| `fiscal_gap_pkr_bn` | PKR bn per fortnight | Shortfall if the levy stays at `current_levy`: `target - current_levy x volume`. Positive = under-collecting, negative = over-collecting. Equals `volume x (required_levy - current_levy)`. | Not in the label rule and fully derived from target, volume and current_levy, so it adds no new information. Tree feature (background). |
-| `multiplier` | ratio | Relief factor applied to `required_levy` (0.80 / 0.92 / 0.95 / 1.00). This is what the tree learns. | Prediction target. |
-| `levy_value` | PKR/litre | `clip(round(required_levy x multiplier, 1), 30, 85)`. Synthetic label. | Training label only; never an input. |
+| `fiscal_gap_pkr_bn` | PKR bn | `target - current_levy x volume` = `volume x (required_levy - current_levy)`. Positive = under-collecting. | Not in the label rule; fully derived from target, volume and current_levy, so it adds no new information. Tree feature (background). |
+| `multiplier` | ratio | Relief factor on `required_levy` (0.80 / 0.92 / 0.95 / 1.00). | Prediction target. |
+| `levy_value` | PKR/litre | Synthetic label from section 3.2. | Training label only. |
 
-Why each is included:
+**Why each group is included**
 - Rule drivers (`forecast_crude_price`, `affordability_index`, `levy_revenue_target_pkr_bn`, `levied_volume_bn_litres`): they define the label, so the tree should recover them.
-- Context columns (`retail_petrol_price`, `current_levy`, `fiscal_gap_pkr_bn`): kept as plausible policy inputs, but they do not enter the rule. They can only help by proxying a rule driver and can mislead the tree. Example: the 71-row run splits on `fiscal_gap_pkr_bn <= 0.475`, which is not part of the rule.
-- Comparing all columns against only the four rule drivers is a planned check (`RULE_FEATURES_ONLY`).
+- Context columns (`retail_petrol_price`, `current_levy`, `fiscal_gap_pkr_bn`): plausible policy inputs that are not in the rule. They can only help by proxying a rule driver, and they can mislead the tree. The current tree splits on `fiscal_gap_pkr_bn <= 0.475`, which is not part of the rule.
+- Planned check: all columns vs only the four rule drivers (`RULE_FEATURES_ONLY`).
 
-## 5. How one input row is built (`LevyAdvisor`)
+### 3.4 How one input row is built (`LevyAdvisor`)
 
 `LevyAdvisor` reads no raw files. Everything except the crude price is carried from a training row.
 
@@ -106,54 +133,47 @@ Why each is included:
 | `retail_petrol_price`, `current_levy`, `affordability_index`, `levy_revenue_target_pkr_bn`, `levied_volume_bn_litres`, `fiscal_gap_pkr_bn` | Carried from the last row of `levy_training.csv` | Carried from the last row before the chosen date |
 | `required_levy` | target / volume (calculated) | Same |
 
-- Live period start = the fortnight after the last row's `period_start` (a start on the 1st gives the 16th of that month; a start on the 16th gives the 1st of the next month). With the 16-31 Oct row present, live mode recommends for 2026-11-01.
-- The latest completed fortnight's retail price and affordability are the best information available when predicting the next one. If a newer weekly price or CPI month arrives, append a row (section 7).
-- Target and wage are fixed per fiscal year (changes on 1 July); update by hand when the new target and budget wage are known.
-- Volume is carried from the latest row, which is a real uncertainty (section 8).
+- Live period start = the fortnight after the last row's `period_start` (a start on the 1st gives the 16th of that month; a start on the 16th gives the 1st of the next month). With 71 rows (last start 2026-10-16), live mode recommends for 2026-11-01.
+- The latest completed fortnight's values are the best information available for the next one. When a newer weekly price or CPI month arrives, append a row (section 4).
+- Target and wage change on 1 July; update them by hand when the new fiscal-year values are known.
 
-## 6. Modes and commands
+### 3.5 Commands and checks
 
-Build (from `src/`, never compile one file alone): `g++ -std=c++17 -O2 RegressionTree.cpp LevyAdvisor.cpp -o tree_test.exe`
+Build (from `src/`; never compile one file alone):
+`g++ -std=c++17 -O2 RegressionTree.cpp LevyAdvisor.cpp -o tree_test.exe`
 
-- `.\tree_test.exe` runs the default experiment report.
-- `.\tree_test.exe live --crude <value>` recommends the levy for the next fortnight. It will be the dashboard's main feature.
-- `.\tree_test.exe backtest YYYY-MM-DD` uses only earlier rows and compares with the stored row. The date must be a `period_start` in the CSV and have at least 10 earlier rows.
-- None of these modes writes to any CSV. Appending live rows is deliberately not done: they have no real label.
+| Command | Behaviour |
+|---|---|
+| `.\tree_test.exe` | Runs the default experiment report (section 3.1). |
+| `.\tree_test.exe live --crude <value>` | Trains on all rows and recommends the levy for the next fortnight. Intended as the dashboard's main feature. |
+| `.\tree_test.exe backtest YYYY-MM-DD` | Trains only on earlier rows and compares the recommendation with the stored row. The date must be a `period_start` in the CSV with at least 10 earlier rows. |
+
+None of these modes writes to any CSV. Live rows are deliberately never appended, because they have no real label.
 
 **Checks that must pass after any data or code change**
 - `live`: the printed period start is the fortnight after the last CSV row.
 - `backtest <date>`: "Training samples" equals the number of rows before that date.
-- In both: required levy = carried target / carried volume, and recommended levy = required levy x predicted multiplier.
-- Record new reference numbers from a fresh run; older figures from the synthetic dataset no longer apply.
+- Both: required levy = carried target / carried volume, and recommended levy = required levy x predicted multiplier.
+- Record fresh reference numbers from a new run in `docs/model_metrics.md`.
 
-## 7. Updating the data (manual, in this order)
+## 4. Updating the data (manual, in this order)
 
-Nothing in the C++ code appends rows or runs the scripts. When a new fortnight is added:
+Nothing in the C++ code appends rows or runs the scripts. To add a new fortnight:
 
-1. Add the new row to `data/processed/levy_training.csv` with its inputs (weekly retail price, notified levy, CPI month, wage, carried target, volume by the Data_Readme method, fiscal gap). Put any placeholder in `forecast_crude_price`; it is replaced in step 3. Keep a backup first.
-2. Module 1 owner extends `data/processed/brent_daily.csv` and appends the forecast for that `period_start` to `data/processed/forecast_col.csv` (only data before the period start).
-3. From the repo root: `python scripts/regenerate_labels.py`. It checks that `period_start` values match one-to-one with `forecast_col.csv`, replaces `forecast_crude_price`, recomputes the stress cut-off and `levy_value` for all rows, and rewrites the CSV. It needs `pandas` and `numpy`.
-4. Rebuild if code changed, then rerun `tree_test.exe`, `live` and `backtest`; update the numbers in the report.
+1. Add the row to `data/processed/levy_training.csv` using the methods in `data/Data_Readme.md` (weekly retail price, notified levy, CPI month, wage, carried target, volume, fiscal gap). Put any placeholder in `forecast_crude_price`; step 3 replaces it. Back up the file first.
+2. Module 1 owner extends `data/processed/brent_daily.csv`, then reruns `gen_forecast_col` (section 2.4) so `data/processed/forecast_col.csv` has a forecast for the new `period_start` (only data before that date is used).
+3. From the repo root run `python scripts/regenerate_labels.py` (needs `pandas` and `numpy`). It checks that `period_start` values match `forecast_col.csv` one-to-one, replaces `forecast_crude_price`, recomputes the stress cut-off and `levy_value` for all rows, and rewrites the CSV.
+4. Rebuild if code changed. Rerun `tree_test.exe`, `live` and `backtest`, and update the results in `docs/model_metrics.md`.
 5. Update `data/Data_Readme.md` (row count, end date, cut-off, sources of the new row).
 
-Delete `.bak` and `levy_training_placeholder_crude.csv` once the new CSV is verified and committed. The script overwrites `levy_training_placeholder_crude.csv` with the current file on every run, so it is a copy of the previous state, not the old placeholder data.
+Delete the `.bak` file and `levy_training_placeholder_crude.csv` once the new CSV is verified and committed. The script overwrites `levy_training_placeholder_crude.csv` with a copy of the previous state on every run.
 
-History: the first regeneration (synthetic data, 27.907 cut-off) changed 13 rows; walk-forward RMSE went from 2.740 to 1.262.
-
-## 8. Limitations to state in the report
+## 5. Model limitations (state these in the report)
 
 - The label is a rule we wrote, so a high score means the tree recovered our rule, not that it predicts real levies.
-- The training file is mixed-provenance (see `Data_Readme.md`): revenue targets, the levy schedule and crude forecasts are inherited project inputs that need source verification; volume allocation, fiscal gap and labels are calculated or estimated.
-- The recommendation hinges on the crude forecast crossing 80 USD/bbl; a forecast just below or above flips the multiplier and the band.
-- Next fortnight's volume, retail price and affordability are unknown; carrying the latest row adds error. Backtests inherit the same effect.
-- Only about 70 rows and 14 test rows: small differences between models mean nothing.
+- The recommendation hinges on the crude forecast crossing 80 USD/bbl; a forecast just above or below flips the multiplier and the band.
+- Next fortnight's volume, retail price and affordability are unknown. Carrying the latest row adds error, and backtests inherit it.
+- Small samples (71 rows, 15 test rows): small differences between models mean nothing.
 - Retail price already contains the levy, so affordability is partly circular.
 - Adding rows moves the 40th-percentile cut-off and can change earlier labels.
-
-## 9. File map and ownership
-
-| Path | Owner |
-|---|---|
-| `src/arima.*`, Brent data, `data/processed/forecast_col.csv`, generator tool | Module 1 |
-| `src/RegressionTree.*`, `src/LevyAdvisor.*`, `data/processed/levy_training.csv`, `data/Data_Readme.md`, `scripts/regenerate_labels.py`, source files for the levy columns | Module 2 |
-| `frontend/` (not yet connected; remove retail price and USD/PKR from `FEATURES` if not shown) | Frontend pair |
+- Data-quality caveats (mixed provenance, estimated volume and fiscal gap, unverified targets and levy schedule) are in `data/Data_Readme.md`.
