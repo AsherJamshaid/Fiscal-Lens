@@ -2,7 +2,7 @@
 
 ## Bottom line
 
-`levy_training_real.csv` is a **mixed-provenance training dataset**. It contains direct observations from the supplied CPI and petrol-price files, calculated measures based on those observations, and several carried-forward or estimated inputs required by the existing project schema. It is not a fully audited administrative dataset, and its `levy_value` is a rule-generated training label rather than an observed policy outcome.
+`levy_training.csv` is a currently a **mixed-provenance training dataset**. It contains direct observations from the supplied CPI and petrol-price files, calculated measures based on those observations, and several carried-forward or estimated inputs required by the existing project schema. It is not a fully audited administrative dataset, and its `levy_value` is a rule-generated training label rather than an observed policy outcome.
 
 The table below is the definitive classification of every column.
 
@@ -22,27 +22,30 @@ The table below is the definitive classification of every column.
 
 ### Direct data sources
 
-- `C:\Users\mahad\Downloads\Consumer Price Index (CPI).csv`
+- `data/raw/Consumer Price Index (CPI).csv`
   - Monthly national CPI year-on-year and month-on-month changes.
   - The month-on-month series is used to reconstruct a normalized CPI index.
 
-- `C:\Users\mahad\Downloads\Petrol Price.csv`
+- `data/raw/Petrol Price.csv`
   - Weekly city-level prices and a `Pakistan` national value.
   - The national value is used as `retail_petrol_price`.
 
-- `C:\Users\mahad\Downloads\Jul-2023-Jun-2024-ENE-Pak.pdf`
+- `data/raw/Import-Export-2026-27-Jul-Sep.pdf`
+  - FY 2026-27 import and export data for the specified period.
+
+- `data/raw/Jul-2023-Jun-2024-ENE-Pak.pdf`
   - FY 2023-24 internal-sales totals: MS 7,145,004 tonnes; HSD 6,234,221 tonnes.
 
-- `C:\Users\mahad\Downloads\Jul-Jun-2024-25-ENE-Pak-1.pdf-1.pdf`
+- `data/raw/Jul-Jun-2024-25-ENE-Pak-1.pdf-1.pdf`
   - FY 2024-25 internal-sales totals: MS 7,603,246 tonnes; HSD 6,858,461 tonnes.
 
-- `C:\Users\mahad\Downloads\Jul-Jun-2025-26-ENE-Pak-2.pdf`
+- `data/raw/Jul-Jun-2025-26-ENE-Pak-2.pdf`
   - FY 2025-26 internal-sales totals: MS 7,840,129 tonnes; HSD 7,056,746 tonnes.
 
-- `C:\Users\mahad\Downloads\Jul-Sep-2026-27-ENE-Pak.pdf`
+- `data/raw/Jul-Sep-2026-27-ENE-Pak.pdf`
   - Jul-Sep 2026 internal-sales totals: MS 2,043,354 tonnes; HSD 1,569,890 tonnes.
 
-- `C:\Users\mahad\Downloads\MinWageHistory.png`
+- `data/raw/MinWageHistory.png`
   - Wage schedule transcribed for the affordability calculation: 32,000 PKR/month in FY 2023-24, 37,000 in FY 2024-25, 40,000 in FY 2025-26, and 40,700 in FY 2026-27.
   - The image distinguishes federal and provincial rates in later years. The 40,000 FY 2025-26 value is a provincial reference rate; 40,700 for FY 2026-27 is the federal figure shown. This is a modelling choice, not a single national statutory series.
 
