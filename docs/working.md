@@ -66,15 +66,35 @@ stress              = affordability_index < 40th percentile of affordability_ind
 high_crude          = forecast_crude_price > 80
 multiplier          = 0.80 (stress and high_crude) | 0.92 (stress only) | 0.95 (high_crude only) | 1.00
 levy_value          = clip(round(required_levy x multiplier, 1), 30, 85)     PKR/litre
-levy_band           = LOW if levy_value < 55; MEDIUM if < 70; else HIGH   (reporting/UI only; not in CSV)
+
 ```
 
 - The stress cut-off is recomputed by `scripts/regenerate_labels.py` on every run. It was 27.907 on the earlier synthetic file and 29.2176 on the 70-row real-data file; it changes whenever rows are added.
-- `current_levy` is the total levy in force: petroleum levy plus climate levy.
-- `retail_petrol_price` is the latest Pakistan weekly price on or before the period end (not lagged).
 - Wage is the fiscal-year minimum wage (FY2026-27: 40,700); CPI is the index rebuilt from monthly changes (Oct 2023 = 100).
-- Crude forecast: used only in `high_crude`. Retail price: used through `affordability_index`, which drives `stress`. USD/PKR: not used.
+- Crude forecast: used only in `high_crude`. Retail price: used through `affordability_index`, which drives `stress`.
 - `levy_value` is the training label only. It is never an input and is not computed for live rows.
+
+## 4a. Parameters (model inputs and what they do)
+
+Units: PKR = Pakistani rupees; bn = billion. All rows are fortnightly.
+
+| Parameter | Unit | Meaning | Role in the model |
+|---|---|---|---|
+| `forecast_crude_price` | USD/bbl | Mean of Module 1's Brent forecast for the next 10 trading days (no look-ahead). The only Module 1 -> Module 2 link. | Label rule: `high_crude` (> 80). Also a tree feature. |
+| `retail_petrol_price` | PKR/litre | Latest weekly Pakistan pump price on or before the period end. Already includes the levy. | Label rule: only through `affordability_index`. Also a tree feature. |
+| `affordability_index` | index | Minimum wage buys how many 40-litre tanks, adjusted by CPI (formula in section 4). Higher = fuel is more affordable. | Label rule: `stress` (below the 40th percentile). Main driver of the multiplier. |
+| `levy_revenue_target_pkr_bn` | PKR bn per fortnight | Revenue the levy is meant to collect in the fortnight (the fiscal/IMF target). Constant within a fiscal year. | Label rule: sets `required_levy`. Tree feature. |
+| `levied_volume_bn_litres` | bn litres per fortnight | Estimated petrol + diesel sold in the fortnight. | Label rule: sets `required_levy`. Tree feature. |
+| `required_levy` | PKR/litre | `target / volume`: the levy that would exactly hit the target. Derived, never stored in the CSV. | Scale of the output: `levy = required_levy x multiplier`. Tree feature. |
+| `current_levy` | PKR/litre | Total levy in force (petroleum levy + climate levy). | Not in the label rule. Tree feature and the "status quo" baseline. |
+| `fiscal_gap_pkr_bn` | PKR bn per fortnight | Shortfall if the levy stays at `current_levy`: `target - current_levy x volume`. Positive = under-collecting, negative = over-collecting. Equals `volume x (required_levy - current_levy)`. | Not in the label rule and fully derived from target, volume and current_levy, so it adds no new information. Tree feature (background). |
+| `multiplier` | ratio | Relief factor applied to `required_levy` (0.80 / 0.92 / 0.95 / 1.00). This is what the tree learns. | Prediction target. |
+| `levy_value` | PKR/litre | `clip(round(required_levy x multiplier, 1), 30, 85)`. Synthetic label. | Training label only; never an input. |
+
+Why each is included:
+- Rule drivers (`forecast_crude_price`, `affordability_index`, `levy_revenue_target_pkr_bn`, `levied_volume_bn_litres`): they define the label, so the tree should recover them.
+- Context columns (`retail_petrol_price`, `current_levy`, `fiscal_gap_pkr_bn`): kept as plausible policy inputs, but they do not enter the rule. They can only help by proxying a rule driver and can mislead the tree. Example: the 71-row run splits on `fiscal_gap_pkr_bn <= 0.475`, which is not part of the rule.
+- Comparing all columns against only the four rule drivers is a planned check (`RULE_FEATURES_ONLY`).
 
 ## 5. How one input row is built (`LevyAdvisor`)
 

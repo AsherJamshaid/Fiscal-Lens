@@ -16,12 +16,13 @@ The repository contains C++ source, static frontend assets, CSV data, documentat
 | Location | Contents and role |
 |---|---|
 | `src/` | C++ implementation of the AR model, regression tree, levy advisor (live/backtest), forecast-column generator, and `tree_test.exe`. |
-| `data/raw/` | Source-style input files. The earlier petrol build-up and CPI/income files were removed in favor of direct weekly retail petrol prices and a cleaned CPI file. |
+| `data/raw/` | Source-style input files. Contains the uncleaned PDFs and CSVs used in the data processing pipeline. |
 | `data/processed/` | Backend-consumable cleaned Brent data, the real-data levy training file (`levy_training.csv`), and the generated forecast column (`forecast_col.csv`). Backup copies (`*.bak`, `levy_training_placeholder_crude.csv`) may appear here after script runs and should be deleted once verified. |
 | `scripts/regenerate_labels.py` | Merges `forecast_col.csv` into the levy file and recomputes `levy_value` for all rows. Run manually. |
+| `scripts/clean_brent.py` | Cleans the raw data and prepares it for processing. |
 | `frontend/` | Static HTML/CSS/JavaScript dashboard and visual assets. |
-| `docs/`, `data/Data_Readme.md` | Design notes, the original blueprint, and column-level data provenance. |
-
+| `docs/`, `data/Data_Readme.md` | Design notes, documentation relating to the architecture & working,the original blueprint, and column-level data provenance. |
+    
 ## C++ backend
 
 ### Commodity Trend Tracker
