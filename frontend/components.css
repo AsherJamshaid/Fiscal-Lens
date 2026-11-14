@@ -151,3 +151,8 @@ fieldset { padding: 0; margin: 0 0 21px; border: 0; min-width: 0; }legend { font
 :root[data-theme="light"] .module-card { background: color-mix(in srgb, var(--blue) 8%, var(--surface)); --glow: #fff; --glow-a: 75%; --glow-b: 30%; }
 :root[data-theme="light"] .module-card.purple { background: color-mix(in srgb, var(--purple) 8%, var(--surface)); }
 /* EDITS END */
+
+/* ADDED: step states for pending / failed (running + done already existed) */
+.forecast-steps li[data-state="pending"] { opacity:.6; }
+.forecast-steps li[data-state="failed"] { color:#ef8b80; }
+:root[data-theme="light"] .forecast-steps li[data-state="failed"] { color:#b3261e; }

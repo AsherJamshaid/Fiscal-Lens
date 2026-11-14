@@ -277,14 +277,43 @@ let lastForecast = null;
 function setBusy(value, panelId) {
   busy = value;
   // DEBUG: serialize WASM calls because the same module may have shared C++ state.
-  for (const id of ['runForecast', 'runLevy', 'forecastInput', 'forecastHorizon', 'window']) if ($(id)) $(id).disabled = value;
+  for (const id of ['runForecast', 'runLevy', 'window']) if ($(id)) $(id).disabled = value;
   if ($(panelId)) $(panelId).setAttribute('aria-busy', String(value));
 }
 const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-function progress(id, text) {
-  const list = $(id); if (!list) return;
-  const li = document.createElement('li'); li.dataset.state = 'running'; li.textContent = text;
-  list.replaceChildren(li);
+// ADDED: fixed forecast window (15 daily observations) and per-step pacing.
+const FORECAST_HORIZON = 15;
+const STEP_DELAY = 800; // ms: minimum time each step stays "running" (raise/lower to taste)
+const FORECAST_STEPS = ['Load Brent history', 'Start C++ model', 'Forecast crude price (ARIMA)'];
+const LEVY_STEPS = ['Load Brent history', 'Start C++ model', 'Forecast crude price (ARIMA)', 'Load latest fortnight data', 'Calculate required levy', 'Walk the decision tree', 'Apply the multiplier'];
+const STEP_LABEL = { pending: 'Pending', running: 'Running…', done: 'Done', failed: 'Failed' };
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Build the full list up front, every step "pending"; returns the <li> elements in order.
+function initSteps(id, labels) {
+  const list = $(id); if (!list) return [];
+  const items = labels.map(text => {
+    const li = document.createElement('li');
+    const name = document.createElement('span'), state = document.createElement('span');
+    name.textContent = text; li.append(name, state);
+    setStep(li, 'pending');
+    return li;
+  });
+  list.replaceChildren(...items);
+  return items;
+}
+function setStep(li, state) {
+  if (!li) return;
+  li.dataset.state = state;
+  li.lastElementChild.textContent = STEP_LABEL[state];
+}
+// running -> (real work + minimum delay) -> done, or failed if the work throws.
+async function runStep(li, work) {
+  setStep(li, 'running'); await paint();
+  try {
+    const [result] = await Promise.all([work(), wait(STEP_DELAY)]);
+    setStep(li, 'done');
+    return result;
+  } catch (error) { setStep(li, 'failed'); throw error; }
 }
 function selectedSeries() {
   const key = $('forecastInput')?.value || 'forecast_crude_price';
@@ -336,23 +365,24 @@ async function runForecast() {
   message('runSummary', 'Loading inputs…');
   message('accuracyNote', 'Waiting for forecast evaluation…');
   for (const id of ['statMape', 'statRmse', 'statMae', 'statOrder', 'statDiff', 'statNext']) message(id, '—');
+  const steps = initSteps('forecastSteps', FORECAST_STEPS);
+  let ok = false;
   try {
-    // DEBUG: Brent never waits for or requests levy_training.csv.
-    const key = $('forecastInput')?.value || 'forecast_crude_price';
-    if (key === 'forecast_crude_price') await ensureBrent();
-    else if (key === 'usd_pkr') await ensureUsd();
-    else await ensureTraining();
-    const series = selectedSeries();
-    const horizon = Number($('forecastHorizon')?.value || 12);
-    if (!Number.isInteger(horizon) || horizon < 1 || horizon > 365) throw new Error('Select a forecast window from 1 to 365.');
-    const api = await backend(['arimaReport']);
-    progress('forecastSteps', 'Calculating C++ forecast…');
+    const horizon = FORECAST_HORIZON;
+    let series, api, result, mean;
+    // 1. Load Brent history (Brent never waits for or requests levy_training.csv)
+    await runStep(steps[0], async () => { await ensureBrent(); series = selectedSeries(); });
+    // 2. Start C++ model
+    await runStep(steps[1], async () => { api = await backend(['arimaReport']); });
+    // 3. Forecast crude price (ARIMA)
     message('runSummary', 'Calculating ' + series.label + '…');
-    await paint();
-    const result = await api.arimaReport(series.values, horizon);
-    if (!result.ok) throw new Error(result.error || 'ARIMA evaluation failed.');
-    const mean = Number(result.mean);
-    if (!Number.isFinite(mean) || mean <= 0) throw new Error('C++ returned no valid forecast. Check the model’s minimum training length and the input data.');
+    await runStep(steps[2], async () => {
+      result = await api.arimaReport(series.values, horizon);
+      if (!result.ok) throw new Error(result.error || 'ARIMA evaluation failed.');
+      mean = Number(result.mean);
+      if (!Number.isFinite(mean) || mean <= 0) throw new Error('C++ returned no valid forecast. Check the model’s minimum training length and the input data.');
+    });
+    await wait(500); // let the final "Done" register before the chart replaces the list
     lastForecast = { series, horizon, mean };
     drawForecast(series, horizon, mean);
     show('forecastPlot', true);
@@ -367,8 +397,13 @@ async function runForecast() {
     message('modelNote', 'Future forecast fitted on all ' + series.values.length + ' observations. Next observation: ' + series.unit + '.');
     show('modelInfo', true);
     message('accuracyNote', series.label + ': final ' + result.testCount + ' observations held out; fitted and selected p=' + result.evaluationP + ' using only the preceding ' + result.trainCount + '. MAPE is a percentage; RMSE and MAE are in ' + series.unit + '. Lower is better.');
+    ok = true;
   } catch (error) { reportError('runSummary', error); message('accuracyNote', 'Evaluation unavailable: ' + error.message); }
-  finally { show('chartProgress', false); setBusy(false, 'forecastPanel'); }
+  finally {
+    // On success the chart replaces the step list; on failure the list stays so the failed step is visible.
+    if (ok) show('chartProgress', false);
+    setBusy(false, 'forecastPanel');
+  }
 }
 async function runLevy() {
   if (busy) return;
@@ -377,31 +412,49 @@ async function runLevy() {
   message('levyValue', '—');
   document.querySelectorAll('.levy-band-scale span').forEach(el => { el.classList.remove('is-on'); el.removeAttribute('aria-current'); });
   for (const id of ['treeMape', 'treeRmse', 'treeMae']) message(id, '—');
+  const steps = initSteps('levySteps', LEVY_STEPS);
+  let ok = false;
   try {
-    // DEBUG: live() owns C++ training-data loading; fetching a browser CSV does not mount it in WASM.
-    await ensureBrent();
     const levy = PREDICTIONS.find(p => p.label === 'Petroleum levy');
-    if (levy) { levy.forecast = null; levy.band = null; renderCards(); }
-    if (!BRENT_PRICES.length) throw new Error('Brent price history is empty.');
-    const api = await backend(['arimaMean', 'live']);
-    progress('levySteps', 'Calculating crude forecast…'); await paint();
-    const crude = Number(await api.arimaMean(BRENT_PRICES, 10));
-    // DEBUG: no made-up fallback of $75 when C++ fails.
-    if (!Number.isFinite(crude) || crude <= 0) throw new Error('C++ crude forecast failed. Check training data length.');
-    progress('levySteps', 'Calculating levy recommendation…'); await paint();
-    const live = resultObject(await api.live(crude));
-    if (!live || !live.ok) throw new Error(live?.error || 'C++ levy calculation failed. Check WASM CSV file mounting.');
-    if (live.levy == null || live.levy === '' || !Number.isFinite(Number(live.levy)) || Number(live.levy) < 0) throw new Error('C++ returned an invalid levy.');
-    levy.forecast = Number(live.levy);
-    levy.band = String(live.band || '').trim().toLowerCase().replace(/[_\s]+/g, '-');
-    levy.targetDate = live.periodStart || 'the next period';
-    const crudeCard = PREDICTIONS.find(p => p.label === 'Brent crude');
-    if (crudeCard) { crudeCard.forecast = crude; crudeCard.targetDate = 'Next 10 daily observations (mean)'; }
-    renderLevyResult(); renderCards();
-    // DEBUG: a report failure must not discard a successful recommendation.
+    let api, crude, live, band;
+    // 1. Load Brent history
+    await runStep(steps[0], async () => {
+      await ensureBrent();
+      if (levy) { levy.forecast = null; levy.band = null; renderCards(); }
+      if (!BRENT_PRICES.length) throw new Error('Brent price history is empty.');
+    });
+    // 2. Start C++ model
+    await runStep(steps[1], async () => { api = await backend(['arimaMean', 'live']); });
+    // 3. Forecast crude price (ARIMA). No made-up fallback if C++ fails.
+    await runStep(steps[2], async () => {
+      crude = Number(await api.arimaMean(BRENT_PRICES, 10));
+      if (!Number.isFinite(crude) || crude <= 0) throw new Error('C++ crude forecast failed. Check training data length.');
+    });
+    // 4. Load latest fortnight data: live() mounts the CSV and runs the C++ pipeline in ONE call.
+    await runStep(steps[3], async () => {
+      live = resultObject(await api.live(crude));
+      if (!live || !live.ok) throw new Error(live?.error || 'C++ levy calculation failed. Check WASM CSV file mounting.');
+    });
+    // 5. Calculate required levy (validate the value C++ returned)
+    await runStep(steps[4], async () => {
+      if (live.levy == null || live.levy === '' || !Number.isFinite(Number(live.levy)) || Number(live.levy) < 0) throw new Error('C++ returned an invalid levy.');
+    });
+    // 6. Walk the decision tree (read the band the tree selected)
+    await runStep(steps[5], async () => { band = String(live.band || '').trim().toLowerCase().replace(/[_\s]+/g, '-'); });
+    // 7. Apply the multiplier (publish the result to the page)
+    await runStep(steps[6], async () => {
+      levy.forecast = Number(live.levy);
+      levy.band = band;
+      levy.targetDate = live.periodStart || 'the next period';
+      const crudeCard = PREDICTIONS.find(p => p.label === 'Brent crude');
+      if (crudeCard) { crudeCard.forecast = crude; crudeCard.targetDate = 'Next 10 daily observations (mean)'; }
+      renderLevyResult(); renderCards();
+    });
+    ok = true;
+    // A report failure must not discard a successful recommendation.
     try {
       if (typeof api.report !== 'function') throw new Error('The WASM bridge does not expose report().');
-      progress('levySteps', 'Reading model evaluation…'); await paint();
+      message('treeNote', 'Reading model evaluation…');
       const report = resultObject(await api.report());
       if (!report?.ok) throw new Error(report?.error || 'C++ evaluation failed.');
       const section = String(report.output || '').split('TEST PERFORMANCE')[1] || '';
@@ -412,19 +465,17 @@ async function runLevy() {
       }
       message('treeNote', count === 3 ? 'Held-out regression-tree errors; lower is better.' : 'Evaluation output did not contain all three test metrics.');
     } catch (error) { reportError('treeNote', error); }
+    await wait(500); // let the final "Done" register before the list is hidden
   } catch (error) { reportError('levyRecommendationNote', error); }
-  finally { show('levyProgress', false); setBusy(false, 'levyPanel'); }
+  finally {
+    // On success hide the list; on failure keep it so the failed step is visible.
+    if (ok) show('levyProgress', false);
+    setBusy(false, 'levyPanel');
+  }
 }
 // DEBUG: attach the previously missing forecast handler and the recommendation handler.
 $('runForecast')?.addEventListener('click', runForecast);
 $('runLevy')?.addEventListener('click', runLevy);
-for (const id of ['forecastInput', 'forecastHorizon']) {
-  $(id)?.addEventListener('change', () => {
-    lastForecast = null;
-    show('forecastPlot', false); show('forecastLegend', false);
-    message('runSummary', 'Settings changed. Run forecast to calculate the selected input and window.');
-  });
-}
 $('window')?.addEventListener('change', () => {
   if (lastForecast) drawForecast(lastForecast.series, lastForecast.horizon, lastForecast.mean);
 });
