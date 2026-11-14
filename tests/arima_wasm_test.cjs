@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
  fetch: async url => ({ok:true,text:async()=>fs.readFileSync(fileURLToPath(url),'utf8')})
  });
  vm.runInContext(fs.readFileSync('Binding/levy-wasm.js','utf8')+'\nglobalThis.api = LevyWasm;', context);
- for (const [file, column] of [['processed/brent_daily.csv','price'], ['raw/usd_pkr_daily.csv','usd_pkr']]) {
+ for (const [file, column] of [['processed/brent_daily.csv','price']]) {
  const lines=fs.readFileSync('data/'+file,'utf8').trim().split(/\r?\n/);
  const headers=lines.shift().split(',');
  const prices=lines.map(line=>Number(line.split(',')[headers.indexOf(column)])).filter(x=>x>0);
@@ -30,7 +30,11 @@ const assert = require('node:assert/strict');
  const constant=await context.api.arimaReport(Array(320).fill(100),12);
  assert(constant.ok); assert(constant.rmse<1e-8); assert(constant.mape<1e-8);
  assert(!(await context.api.arimaReport([100,101],12)).ok);
- assert((await context.api.live(75)).ok,'Levy recommendation regression');
- assert((await context.api.report()).ok,'Tree report regression');
+ const levy = await context.api.live(75);
+ assert(levy.ok, 'Levy recommendation regression: ' + levy.output);
+ assert(Number.isFinite(levy.levy) && levy.levy >= 0);
+ const report = await context.api.report();
+ assert(report.ok, 'Tree report regression: ' + report.output);
+ assert(report.output.includes('TEST PERFORMANCE'));
  console.log('WASM bridge checks passed');
 })().catch(error=>{console.error(error);process.exitCode=1});

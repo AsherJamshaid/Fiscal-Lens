@@ -7,10 +7,8 @@ const LevyWasm = (() => {
   const BASE_URL = new URL('../data/', document.currentScript.src);   // where the browser fetches the CSVs from
   // [file under BASE_URL, path inside the virtual "data/" folder]
   const DATA_FILES = [
-    ['processed/levy_training.csv',                       'levy_training.csv'],
+    ['processed/levy_training.csv',                       'processed/levy_training.csv'],
     ['processed/brent_daily.csv',                         'processed/brent_daily.csv'],
-    ['raw/petrol_price_buildup_fortnightly.csv',    'raw/petrol_price_buildup_fortnightly.csv'],
-    ['raw/cpi_and_income_monthly.csv',              'raw/cpi_and_income_monthly.csv'],
   ];
 
   let mod = null, ready = null;

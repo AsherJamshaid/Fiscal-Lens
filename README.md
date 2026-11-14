@@ -31,13 +31,13 @@ Built for the Data Structures & Algorithms Semester Project, with the core ML al
 
 Requirements: Python 3 (serves the frontend; `pandas` and `numpy` are needed only for the label script) and `g++` with C++17.
 
-**Frontend** (from `frontend/`)
+**Frontend** (from the repository root, so the server also exposes `Binding/` and `data/`)
 
 ```
 python -m http.server 8000
 ```
 
-Then open `http://localhost:8000`. The dashboard does not show backend output yet.
+Then open `http://localhost:8000/frontend/`.
 
 **Levy Advisor** (build and run from `src/`)
 

@@ -197,12 +197,12 @@ function ensureBrent() {
 function ensureBuildup() {
   return dataset('buildup', async () => {
     const rows = await loadCSV(
-      ['../data/raw/petrol_price_buildup_fortnightly.csv', '../data/petrol_price_buildup_fortnightly.csv'],
-      ['retail_petrol_price_model']);
+      ['../data/processed/levy_training.csv'],
+      ['retail_petrol_price', 'current_levy']);
     rows.sort((a, b) => String(a.period_end || '').localeCompare(String(b.period_end || '')));
     const last = rows.at(-1);
-    const price = parseFloat(last.retail_petrol_price_model);
-    const levy = parseFloat(last.petroleum_levy_pkr_l) + (parseFloat(last.carbon_levy_pkr_l) || 0);
+    const price = parseFloat(last.retail_petrol_price);
+    const levy = parseFloat(last.current_levy);
     Object.assign(PREDICTIONS[1], { current: Number.isFinite(price) ? price : null, date: last.period_end });
     Object.assign(PREDICTIONS[2], { current: Number.isFinite(levy) ? levy : null, date: last.period_end });
     renderCards(); renderLevySummary();

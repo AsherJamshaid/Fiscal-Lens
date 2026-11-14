@@ -8,7 +8,7 @@ void close(double actual, double expected) {
     assert(std::abs(actual - expected) < 1e-8);
 }
 int main() {
-    for (const auto& filename : {"data/processed/brent_daily.csv", "data/raw/usd_pkr_daily.csv"}) {
+    for (const auto& filename : {"data/processed/brent_daily.csv"}) {
         std::vector<std::string> dates;
         std::vector<double> prices;
         assert(loadCSV(filename, dates, prices));

@@ -41,7 +41,7 @@
       <div class="forecast-workspace">
         <aside class="panel forecast-settings">
           <h3>Forecast settings</h3>
-          <label class="field" for="forecastInput">Input series<select id="forecastInput"><option value="forecast_crude_price">Crude input</option><option value="usd_pkr">USD / PKR</option><option value="retail_petrol_price" disabled>Retail petrol (insufficient history)</option></select></label>
+          <label class="field" for="forecastInput">Input series<select id="forecastInput"><option value="forecast_crude_price">Crude input</option><option value="usd_pkr" disabled>USD / PKR (dataset unavailable)</option><option value="retail_petrol_price" disabled>Retail petrol (insufficient history)</option></select></label>
           <label class="field" for="forecastHorizon">Forecast window<select id="forecastHorizon"><option value="12">Next 12 observations</option><option value="24">Next 24 observations</option></select></label>
           <label class="field" for="window">History window<select id="window"><option value="12">Latest 12 observations</option><option value="24">Latest 24 observations</option><option value="0">All observations</option></select></label>
           <button class="btn" id="runForecast" type="button">Run forecast <span aria-hidden="true">↗</span></button>

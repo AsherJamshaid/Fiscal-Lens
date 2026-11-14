@@ -28,6 +28,6 @@ From the repository root:
 The native test checks the metrics against independently fitted holdout
 predictions, constant-series errors, invalid inputs, the minimum history
 boundary, and evaluation-order isolation from changed holdout values.
-The WebAssembly test checks both series and horizons through the JS bridge,
+The WebAssembly test checks Brent at both horizons through the JS bridge,
 forecast consistency with the original mean API, and levy/tree regressions.
 Rebuild deployment artifacts using Binding/build.sh with Emscripten available.
