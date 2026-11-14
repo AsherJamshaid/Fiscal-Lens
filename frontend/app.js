@@ -228,21 +228,19 @@ function ensureTraining() {
   });
 }
 
-// Scroll fade-in
+// Reveal static sections once; result updates must not hide content again.
 if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
 const io = new IntersectionObserver(entries => entries.forEach(e => {
-if (e.intersectionRatio >= .12) e.target.classList.add('is-visible');
-else if (!e.isIntersecting) e.target.classList.remove('is-visible');
+if (e.intersectionRatio >= .12) {
+e.target.classList.add('is-visible');
+io.unobserve(e.target);
+}
 }), { threshold: [0, .12] });
-const watchReveal = () => document.querySelectorAll('.hero-banner,.hero-modules .module-card,.section-head,.panel,.card').forEach(el => {
+document.querySelectorAll('.hero-banner,.hero-modules .module-card,.section-head,.panel').forEach(el => {
 el.classList.add('reveal');
 el.style.transitionDelay = Math.min([...el.parentElement.children].indexOf(el), 4) * 80 + 'ms';
 io.observe(el);
 });
-watchReveal();
-if ($('cards')) {
-new MutationObserver(watchReveal).observe($('cards'), { childList: true });
-}
 }
 // Cursor-following glow
 const GLOW_SEL = '.btn,.module-card,.nav a,.theme-toggle';
@@ -264,7 +262,7 @@ function reportError(id, error) {
 // DEBUG: reuse the existing wrapper contract. Do not invent C++ exports.
 async function backend(methods) {
   const api = typeof LevyWasm !== 'undefined' ? LevyWasm : window.LevyWasm;
-  if (!api) throw new Error('LevyWasm is missing. Load levy_wasm.js and levy-wasm.js before app.js.');
+  if (!api) throw new Error('LevyWasm is missing. Load levy-wasm.js before app.js.');
   if (api.ready && typeof api.ready.then === 'function') await api.ready;
   for (const method of methods) {
     if (typeof api[method] !== 'function') throw new Error('LevyWasm.' + method + '() is missing from levy-wasm.js.');

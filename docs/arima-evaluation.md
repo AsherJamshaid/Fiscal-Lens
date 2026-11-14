@@ -31,3 +31,11 @@ boundary, and evaluation-order isolation from changed holdout values.
 The WebAssembly test checks Brent at both horizons through the JS bridge,
 forecast consistency with the original mean API, and levy/tree regressions.
 Rebuild deployment artifacts using Binding/build.sh with Emscripten available.
+
+Browser model calls run in Binding/levy-worker.js, which loads the WASM module
+on the first calculation and serializes calls against its shared filesystem.
+The UI receives results asynchronously so model fitting does not block scrolling
+or rendering. This changes execution placement, not the model or its metrics.
+With Playwright and Microsoft Edge installed, run
+`node tests/arima_browser_test.cjs` to check both buttons, metrics, worker reuse,
+UI timer responsiveness, and recovery from a worker startup failure.

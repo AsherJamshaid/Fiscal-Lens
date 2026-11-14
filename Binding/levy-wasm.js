@@ -1,10 +1,48 @@
-/* levy-wasm.js — JS bridge to the C++ ARIMA + RegressionTree code.
-   Load AFTER levy_wasm.js (the Emscripten output) and BEFORE app.js:
-     <script src="levy_wasm.js"></script>
-     <script src="levy-wasm.js"></script>
-*/
+/* Browser calls run in levy-worker.js so model fitting cannot block the UI.
+   The worker loads the Emscripten module before this bridge. */
 const LevyWasm = (() => {
-  const BASE_URL = new URL('../data/', document.currentScript.src);   // where the browser fetches the CSVs from
+  const scriptURL = typeof document !== 'undefined' ? document.currentScript.src : self.location.href;
+  if (typeof window !== 'undefined') {
+    const workerURL = new URL('levy-worker.js', scriptURL);
+    let worker = null, nextId = 0;
+    const pending = new Map();
+    function fail(error) {
+      worker?.terminate();
+      worker = null;
+      for (const task of pending.values()) task.reject(error);
+      pending.clear();
+    }
+    function call(method, args) {
+      return new Promise((resolve, reject) => {
+        if (!worker) {
+          if (typeof Worker === 'undefined') {
+            reject(new Error('This browser does not support background model calculations. Use a current browser.'));
+            return;
+          }
+          worker = new Worker(workerURL);
+          worker.onmessage = ({ data }) => {
+            const task = pending.get(data.id);
+            if (!task) return;
+            pending.delete(data.id);
+            if (data.error) task.reject(new Error(data.error));
+            else task.resolve(data.result);
+          };
+          worker.onerror = event => {
+            event.preventDefault();
+            fail(new Error(event.message || 'The background model worker could not load.'));
+          };
+          worker.onmessageerror = () => fail(new Error('Could not read the background model result.'));
+        }
+        const id = ++nextId;
+        pending.set(id, { resolve, reject });
+        try { worker.postMessage({ id, method, args }); }
+        catch (error) { pending.delete(id); reject(error); }
+      });
+    }
+    return Object.fromEntries(['init', 'live', 'backtest', 'report', 'arimaMean', 'arimaReport', 'generateForecastCol']
+      .map(method => [method, (...args) => call(method, args)]));
+  }
+  const BASE_URL = new URL('../data/', scriptURL);
   // [file under BASE_URL, path inside the virtual "data/" folder]
   const DATA_FILES = [
     ['processed/levy_training.csv',                       'processed/levy_training.csv'],
