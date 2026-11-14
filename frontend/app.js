@@ -10,7 +10,7 @@ const $ = id => document.getElementById(id);
 const number = v => v == null ? '—' : new Intl.NumberFormat('en-PK', { maximumFractionDigits: 2 }).format(v);
 
 let HISTORY = [];
-let PREDICTIONS = [];
+let LEVY_RESULT = null;
 let BRENT_PRICES = [];
 let USD_PRICES = [];
 
@@ -48,27 +48,6 @@ async function loadCSV(paths, columns) {
     } catch (error) { failures.push(path + ': ' + error.message); }
   }
   throw new Error(failures.join('; '));
-}
-
-function renderCards() {
-  const cardsEl = $('cards');
-  if (!cardsEl) return;
-  cardsEl.replaceChildren();
-  PREDICTIONS.forEach(p => {
-    const card = document.createElement('article'); card.className = 'card';
-    const heading = document.createElement('div'), value = document.createElement('div');
-    heading.className = 'reference-heading'; value.className = 'reference-value';
-    const label = document.createElement('h3'); label.textContent = p.label;
-    const date = document.createElement('p'); date.className = 'small-note';
-    date.textContent = p.forecast == null ? (p.date || '—') : (p.targetDate || '—');
-    heading.append(label, date);
-    const metric = document.createElement('div'); metric.className = 'metric';
-    metric.textContent = number(p.forecast ?? p.current);
-    const unit = document.createElement('p'); unit.className = 'unit'; unit.textContent = p.unit;
-    const status = document.createElement('span'); status.className = 'small-note';
-    status.textContent = p.forecast == null ? 'Historical' : 'Forecast';
-    value.append(metric, unit, status); card.append(heading, value); cardsEl.append(card);
-  });
 }
 
 const themeBtn = $('theme-toggle');
@@ -119,54 +98,26 @@ window.addEventListener('resize', updateNavigation);
 updateNavigation();
 
 function renderLevyResult() {
-  const levy = PREDICTIONS.find(p => p.label === 'Petroleum levy');
-  if ($('levyValue')) {
-    $('levyValue').textContent = Number.isFinite(levy?.forecast) ? number(levy.forecast) : '—';
-  }
-  if ($('levyRecommendationNote')) {
-    $('levyRecommendationNote').textContent = Number.isFinite(levy?.forecast)
-      ? 'Regression-tree recommendation for ' + levy.targetDate + '.'
-      : 'Recommendation pending.';
-  }
-  document.querySelectorAll('.levy-band-scale span').forEach(el => {
-    const active = Number.isFinite(levy?.forecast) && el.dataset.band === levy.band;
-    el.classList.toggle('is-on', active);
-    if (active) el.setAttribute('aria-current', 'true'); else el.removeAttribute('aria-current');
-  });
+  const result = LEVY_RESULT;
+  const metric = value => Number.isFinite(value) ? number(value) : '—';
+  const date = value => value ? new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC'
+  }).format(new Date(value + 'T00:00:00Z')) : '—';
+  message('levyValue', metric(result?.levy));
+  message('levyRequired', metric(result?.requiredLevy));
+  message('levyMultiplier', Number.isFinite(result?.multiplier)
+    ? new Intl.NumberFormat('en-PK', { maximumFractionDigits: 3 }).format(result.multiplier) + '×' : '—');
+  message('levyCurrent', metric(result?.currentLevy));
+  const difference = result && Number.isFinite(result.currentLevy) ? result.levy - result.currentLevy : null;
+  message('levyDifference', Number.isFinite(difference) ? (difference > 0 ? '+' : '') + number(difference) : '—');
+  message('levyCrude', metric(result?.crude));
+  message('levyPeriodStart', date(result?.periodStart));
+  message('levyPeriodEnd', date(result?.periodEnd));
+  message('levyRecommendationNote', result
+    ? 'Regression-tree recommendation for ' + date(result.periodStart) + ' to ' + date(result.periodEnd) + '.'
+    : 'Run the recommendation to view.');
 }
-
-function renderLevySummary() {
-  const price = PREDICTIONS.find(p => p.label === 'Petrol price');
-  const levy = PREDICTIONS.find(p => p.label === 'Petroleum levy');
-  if (!$('buildup') || !$('buildupKeys')) return;
-
-  $('buildup').replaceChildren(); $('buildupKeys').replaceChildren();
-  if (!price || !levy || price.date !== levy.date || !(price.current > 0) || !(levy.current >= 0 && levy.current <= price.current)) {
-    if ($('buildupNote')) $('buildupNote').textContent = 'Matching dated price components are unavailable.';
-    return;
-  }
-  const segments = [['Other costs and taxes', price.current - levy.current], ['Petroleum levy', levy.current]];
-  segments.forEach(([label, value]) => {
-    const span = document.createElement('span');
-    span.style.width = (value / price.current * 100) + '%';
-    span.title = label + ': PKR ' + number(value);
-    $('buildup').append(span);
-
-    const row = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
-    dt.textContent = label; dd.textContent = 'PKR ' + number(value);
-    row.append(dt, dd); $('buildupKeys').append(row);
-  });
-  $('buildup').setAttribute('aria-label', segments.map(([label, value]) => label + ': PKR ' + number(value)).join('; '));
-  if ($('buildupNote')) $('buildupNote').textContent = 'Total: PKR ' + number(price.current) + ' / litre · ' + price.date + '.';
-}
-
-// DEBUG: render the reference column immediately, even when a CSV is missing.
-PREDICTIONS = [
-  { label: 'Brent crude', unit: 'USD / bbl', current: null, forecast: null },
-  { label: 'Petrol price', unit: 'PKR / litre', current: null, forecast: null },
-  { label: 'Petroleum levy', unit: 'PKR / litre', current: null, forecast: null, band: null }
-];
-renderCards();
+renderLevyResult();
 
 // DEBUG: index.html is in frontend; ../data/ accesses the sibling data folder.
 // DEBUG: each dataset has its own cache. Failed requests can be retried on the next click.
@@ -189,23 +140,6 @@ function ensureBrent() {
       .filter(item => Number.isFinite(item.value) && item.value > 0);
     if (!valid.length) throw new Error('Brent CSV contains no positive prices.');
     BRENT_PRICES = valid.map(item => item.value);
-    const last = valid.at(-1);
-    Object.assign(PREDICTIONS[0], { current: last.value, date: last.row.date });
-    renderCards();
-  });
-}
-function ensureBuildup() {
-  return dataset('buildup', async () => {
-    const rows = await loadCSV(
-      ['../data/processed/levy_training.csv'],
-      ['retail_petrol_price', 'current_levy']);
-    rows.sort((a, b) => String(a.period_end || '').localeCompare(String(b.period_end || '')));
-    const last = rows.at(-1);
-    const price = parseFloat(last.retail_petrol_price);
-    const levy = parseFloat(last.current_levy);
-    Object.assign(PREDICTIONS[1], { current: Number.isFinite(price) ? price : null, date: last.period_end });
-    Object.assign(PREDICTIONS[2], { current: Number.isFinite(levy) ? levy : null, date: last.period_end });
-    renderCards(); renderLevySummary();
   });
 }
 function ensureUsd() {
@@ -285,7 +219,6 @@ const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAn
 const FORECAST_HORIZON = 15;
 const STEP_DELAY = 800; // ms: minimum time each step stays "running" (raise/lower to taste)
 const FORECAST_STEPS = ['Load Brent history', 'Start C++ model', 'Forecast crude price (ARIMA)'];
-const LEVY_STEPS = ['Load Brent history', 'Start C++ model', 'Forecast crude price (ARIMA)', 'Load latest fortnight data', 'Calculate required levy', 'Walk the decision tree', 'Apply the multiplier'];
 const STEP_LABEL = { pending: 'Pending', running: 'Running…', done: 'Done', failed: 'Failed' };
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Build the full list up front, every step "pending"; returns the <li> elements in order.
@@ -314,6 +247,19 @@ async function runStep(li, work) {
     setStep(li, 'done');
     return result;
   } catch (error) { setStep(li, 'failed'); throw error; }
+}
+function levySteps(states) {
+  const list = $('levySteps'); if (!list) return;
+  const labels = ['Load latest fortnight data', 'Calculate required levy', 'Walk the decision tree', 'Apply the multiplier'];
+  list.replaceChildren(...labels.map((label, index) => {
+    const item = document.createElement('li');
+    item.dataset.state = states[index];
+    const name = document.createElement('span'), status = document.createElement('span');
+    name.textContent = (index + 1) + '. ' + label;
+    status.textContent = { pending: 'Waiting', running: 'Running', done: 'Done', error: 'Failed' }[states[index]];
+    item.append(name, status);
+    return item;
+  }));
 }
 function selectedSeries() {
   const key = $('forecastInput')?.value || 'forecast_crude_price';
@@ -408,53 +354,33 @@ async function runForecast() {
 async function runLevy() {
   if (busy) return;
   setBusy(true, 'levyPanel'); show('levyProgress', true); show('levyResult', true);
+  LEVY_RESULT = null;
+  renderLevyResult();
+  levySteps(['running', 'pending', 'pending', 'pending']);
   message('levyRecommendationNote', 'Loading inputs…');
-  message('levyValue', '—');
-  document.querySelectorAll('.levy-band-scale span').forEach(el => { el.classList.remove('is-on'); el.removeAttribute('aria-current'); });
   for (const id of ['treeMape', 'treeRmse', 'treeMae']) message(id, '—');
-  const steps = initSteps('levySteps', LEVY_STEPS);
-  let ok = false;
   try {
-    const levy = PREDICTIONS.find(p => p.label === 'Petroleum levy');
-    let api, crude, live, band;
-    // 1. Load Brent history
-    await runStep(steps[0], async () => {
-      await ensureBrent();
-      if (levy) { levy.forecast = null; levy.band = null; renderCards(); }
-      if (!BRENT_PRICES.length) throw new Error('Brent price history is empty.');
-    });
-    // 2. Start C++ model
-    await runStep(steps[1], async () => { api = await backend(['arimaMean', 'live']); });
-    // 3. Forecast crude price (ARIMA). No made-up fallback if C++ fails.
-    await runStep(steps[2], async () => {
-      crude = Number(await api.arimaMean(BRENT_PRICES, 10));
-      if (!Number.isFinite(crude) || crude <= 0) throw new Error('C++ crude forecast failed. Check training data length.');
-    });
-    // 4. Load latest fortnight data: live() mounts the CSV and runs the C++ pipeline in ONE call.
-    await runStep(steps[3], async () => {
-      live = resultObject(await api.live(crude));
-      if (!live || !live.ok) throw new Error(live?.error || 'C++ levy calculation failed. Check WASM CSV file mounting.');
-    });
-    // 5. Calculate required levy (validate the value C++ returned)
-    await runStep(steps[4], async () => {
-      if (live.levy == null || live.levy === '' || !Number.isFinite(Number(live.levy)) || Number(live.levy) < 0) throw new Error('C++ returned an invalid levy.');
-    });
-    // 6. Walk the decision tree (read the band the tree selected)
-    await runStep(steps[5], async () => { band = String(live.band || '').trim().toLowerCase().replace(/[_\s]+/g, '-'); });
-    // 7. Apply the multiplier (publish the result to the page)
-    await runStep(steps[6], async () => {
-      levy.forecast = Number(live.levy);
-      levy.band = band;
-      levy.targetDate = live.periodStart || 'the next period';
-      const crudeCard = PREDICTIONS.find(p => p.label === 'Brent crude');
-      if (crudeCard) { crudeCard.forecast = crude; crudeCard.targetDate = 'Next 10 daily observations (mean)'; }
-      renderLevyResult(); renderCards();
-    });
-    ok = true;
-    // A report failure must not discard a successful recommendation.
+    // DEBUG: live() owns C++ training-data loading; fetching a browser CSV does not mount it in WASM.
+    await ensureBrent();
+    if (!BRENT_PRICES.length) throw new Error('Brent price history is empty.');
+    const api = await backend(['init', 'arimaMean', 'live']);
+    await api.init();
+    message('levyRecommendationNote', 'Preparing the crude forecast…'); await paint();
+    const crude = Number(await api.arimaMean(BRENT_PRICES, 10));
+    // DEBUG: no made-up fallback of $75 when C++ fails.
+    if (!Number.isFinite(crude) || crude <= 0) throw new Error('C++ crude forecast failed. Check training data length.');
+    // The advisor performs these three operations within one worker call.
+    levySteps(['done', 'running', 'running', 'running']); await paint();
+    const live = resultObject(await api.live(crude));
+    if (!live || !live.ok) throw new Error(live?.error || 'C++ levy calculation failed. Check WASM CSV file mounting.');
+    if (live.levy == null || live.levy === '' || !Number.isFinite(Number(live.levy)) || Number(live.levy) < 0) throw new Error('C++ returned an invalid levy.');
+    levySteps(['done', 'done', 'done', 'done']); await paint();
+    LEVY_RESULT = { ...live, levy: Number(live.levy), crude };
+    renderLevyResult();
+    // DEBUG: a report failure must not discard a successful recommendation.
     try {
       if (typeof api.report !== 'function') throw new Error('The WASM bridge does not expose report().');
-      message('treeNote', 'Reading model evaluation…');
+      await paint();
       const report = resultObject(await api.report());
       if (!report?.ok) throw new Error(report?.error || 'C++ evaluation failed.');
       const section = String(report.output || '').split('TEST PERFORMANCE')[1] || '';
@@ -465,13 +391,11 @@ async function runLevy() {
       }
       message('treeNote', count === 3 ? 'Held-out regression-tree errors; lower is better.' : 'Evaluation output did not contain all three test metrics.');
     } catch (error) { reportError('treeNote', error); }
-    await wait(500); // let the final "Done" register before the list is hidden
-  } catch (error) { reportError('levyRecommendationNote', error); }
-  finally {
-    // On success hide the list; on failure keep it so the failed step is visible.
-    if (ok) show('levyProgress', false);
-    setBusy(false, 'levyPanel');
+  } catch (error) {
+    levySteps([...$('levySteps').children].map(item => item.dataset.state === 'running' ? 'error' : item.dataset.state));
+    reportError('levyRecommendationNote', error);
   }
+  finally { setBusy(false, 'levyPanel'); }
 }
 // DEBUG: attach the previously missing forecast handler and the recommendation handler.
 $('runForecast')?.addEventListener('click', runForecast);
@@ -484,9 +408,7 @@ if (location.protocol === 'file:') {
   const error = new Error('Open this project through Live Server or http://localhost, not by double-clicking index.html.');
   reportError('runSummary', error); reportError('levyRecommendationNote', error);
 } else {
-  // DEBUG: load cards independently; a build-up failure cannot block Brent forecasting.
   ensureBrent().catch(error => console.error('[DEBUG] Brent history:', error));
-  ensureBuildup().catch(error => reportError('buildupNote', error));
 }
 
 }

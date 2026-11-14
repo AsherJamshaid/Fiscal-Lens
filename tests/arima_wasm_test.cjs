@@ -33,6 +33,15 @@ const assert = require('node:assert/strict');
  const levy = await context.api.live(75);
  assert(levy.ok, 'Levy recommendation regression: ' + levy.output);
  assert(Number.isFinite(levy.levy) && levy.levy >= 0);
+ assert.equal(levy.currentLevy, 85);
+ assert.equal(levy.periodStart, '2026-11-01');
+ assert.equal(levy.periodEnd, '2026-11-15');
+ assert(Math.abs(levy.requiredLevy * levy.multiplier - levy.levy) < 0.05);
+ for (const [start, end] of [['2025-02-16', '2025-02-28'], ['2024-12-16', '2024-12-31']]) {
+   const backtest = await context.api.backtest(start);
+   assert(backtest.ok, backtest.output);
+   assert.equal(backtest.periodEnd, end);
+ }
  const report = await context.api.report();
  assert(report.ok, 'Tree report regression: ' + report.output);
  assert(report.output.includes('TEST PERFORMANCE'));

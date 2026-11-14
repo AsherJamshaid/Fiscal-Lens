@@ -81,22 +81,27 @@ const LevyWasm = (() => {
     return ready;
   }
 
-  const bandSlug = b => ({ LOW: 'low', MEDIUM: 'moderate', HIGH: 'high' }[b] || 'low');
   const pick = (re, s) => (s.match(re) || [])[1];
 
   function parseRecommendation(res) {
     const out = res.output;
     if (res.code !== 0) return { ok: false, error: out.trim(), output: out };
     const levy = parseFloat(pick(/Recommended levy:\s+(-?[\d.]+)/, out));
-    const band = pick(/Recommended band:\s+(\w+)/, out);
+    const periodStart = pick(/(?:Period Start|Target Date):\s+(\S+)/, out);
+    // Advisor targets are half-month periods, starting on the 1st or 16th.
+    let periodEnd = null;
+    if (/^\d{4}-\d{2}-(01|16)$/.test(periodStart || '')) {
+      const [year, month, day] = periodStart.split('-').map(Number);
+      periodEnd = new Date(Date.UTC(year, day === 1 ? month - 1 : month, day === 1 ? 15 : 0)).toISOString().slice(0, 10);
+    }
     return {
       ok: Number.isFinite(levy),
       levy,
-      band: bandSlug(band),
-      bandName: band,
+      currentLevy: parseFloat(pick(/current_levy\s+(-?[\d.]+)/, out)),
       multiplier: parseFloat(pick(/Predicted multiplier:\s+(-?[\d.]+)/, out)),
       requiredLevy: parseFloat(pick(/Required levy:\s+(-?[\d.]+)/, out)),
-      periodStart: pick(/(?:Period Start|Target Date):\s+(\S+)/, out),
+      periodStart,
+      periodEnd,
       output: out,
     };
   }
@@ -155,16 +160,3 @@ const LevyWasm = (() => {
   }
   return { init, live, backtest, report, arimaMean, arimaReport, generateForecastCol };
 })();
-
-/* ---- Wiring into app.js -------------------------------------------------
-   In runLevy(), replace the line  `renderLevyResult();`  with:
-
-   try {
-     const latest = [...(await (await fetch('./data/forecast_col.csv')).text())
-       .trim().split('\n').slice(1)].map(l => parseFloat(l.split(',')[1])).filter(Number.isFinite).pop();
-     const r = await LevyWasm.live(latest);
-     const levy = PREDICTIONS.find(p => p.label === 'Petroleum levy');
-     if (r.ok && levy) { levy.forecast = r.levy; levy.band = r.band; levy.targetDate = r.periodStart; }
-   } catch (e) { console.error(e); }
-   renderLevyResult();
-*/

@@ -22,6 +22,7 @@ const server = http.createServer((req, res) => {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge' });
     const page = await browser.newPage();
+    await page.setViewportSize({ width: 1440, height: 1000 });
     const errors = [], workers = [];
     let navigations = 0;
     page.on('framenavigated', frame => { if (frame === page.mainFrame()) navigations++; });
@@ -42,7 +43,8 @@ const server = http.createServer((req, res) => {
     assert(await panel.evaluate(el => el.classList.contains('is-visible')), 'Revealed sections must stay visible after scrolling away');
     await page.locator('#runForecast').click();
     await page.waitForFunction(() => !document.getElementById('runForecast').disabled);
-    assert.match(await page.locator('#runSummary').innerText(), /mean of the next 12/);
+    assert.match(await page.locator('#runSummary').innerText(), /mean of the next 15/);
+    assert.equal(await page.locator('#forecastInput, #forecastHorizon').count(), 0, 'Preserve the pulled tracker without the removed selectors');
     assert.equal(workers.length, 1);
     assert.notEqual(await page.locator('#statMape').innerText(), '—');
 
@@ -63,13 +65,54 @@ const server = http.createServer((req, res) => {
     assert(Math.abs(check.results[0].mean - 107.23071883247454) < 1e-8);
     assert.equal(check.results[1].testCount, 24);
 
+    await page.evaluate(() => {
+      window.levyStages = [];
+      new MutationObserver(() => window.levyStages.push({
+        states: [...document.querySelectorAll('#levySteps li')].map(el => el.dataset.state),
+        value: document.getElementById('levyValue').textContent
+      })).observe(document.getElementById('levySteps'), { childList: true });
+    });
     await page.locator('#runLevy').click();
     await page.waitForFunction(() => !document.getElementById('runLevy').disabled);
     assert.match(await page.locator('#levyRecommendationNote').innerText(), /Regression-tree recommendation/);
     assert.notEqual(await page.locator('#levyValue').innerText(), '—');
     assert.notEqual(await page.locator('#treeMape').innerText(), '—');
+    assert.deepEqual(await page.locator('#levySteps li span:first-child').allTextContents(), [
+      '1. Load latest fortnight data', '2. Calculate required levy', '3. Walk the decision tree', '4. Apply the multiplier'
+    ]);
+    assert.equal(await page.locator('#levySteps li[data-state="done"]').count(), 4);
+    assert(await page.evaluate(() => window.levyStages.some(stage => stage.states.length === 4 && stage.states.every(state => state === 'done') && stage.value === '—')),
+      'Show completed calculation steps before revealing the recommendation');
     assert.equal(workers.length, 1, 'Reuse the initialized model worker');
-    assert.equal(await page.locator('#cards .reveal').count(), 0, 'Updated cards must not replay reveal animations');
+    assert.equal(await page.locator('.levy-band-scale, #buildup, #cards').count(), 0);
+    for (const id of ['levyRequired', 'levyMultiplier', 'levyCurrent', 'levyDifference', 'levyCrude', 'levyPeriodStart', 'levyPeriodEnd']) {
+      assert.notEqual(await page.locator('#' + id).innerText(), '—', id);
+    }
+    const values = await page.evaluate(() => {
+      const value = id => Number(document.getElementById(id).textContent.replace(/[^0-9.+-]/g, ''));
+      const workspace = document.querySelector('.levy-workspace');
+      const [left, right] = [...workspace.children].map(el => el.getBoundingClientRect().width);
+      return { current: value('levyCurrent'), levy: value('levyValue'), difference: value('levyDifference'), required: value('levyRequired'), multiplier: value('levyMultiplier'), ratio: right / left };
+    });
+    assert.equal(values.current, 85);
+    assert(Math.abs(values.difference - (values.levy - values.current)) < 0.011);
+    assert(Math.abs(values.required * values.multiplier - values.levy) < 0.05);
+    assert(Math.abs(values.ratio - 1.618) < 0.01, 'Preserve the desktop golden split');
+    assert.equal(await page.locator('#levyPeriodStart').innerText(), '01 Nov 2026');
+    assert.equal(await page.locator('#levyPeriodEnd').innerText(), '15 Nov 2026');
+    // Both controls must work again after the shared busy state has cleared.
+    await page.locator('#runForecast').click();
+    await page.waitForFunction(() => !document.getElementById('runForecast').disabled);
+    assert.match(await page.locator('#runSummary').innerText(), /mean of the next 15/);
+    await page.locator('#runLevy').click();
+    await page.waitForFunction(() => !document.getElementById('runLevy').disabled);
+    assert.match(await page.locator('#levyRecommendationNote').innerText(), /Regression-tree recommendation/);
+    await page.locator('#levy').scrollIntoViewIfNeeded();
+    if (process.env.LEVY_SCREENSHOTS) await page.locator('#levy').screenshot({ path: 'tmp/levy-desktop.png', animations: 'disabled' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#levy').scrollIntoViewIfNeeded();
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Mobile layout must not overflow');
+    if (process.env.LEVY_SCREENSHOTS) await page.locator('#levy').screenshot({ path: 'tmp/levy-mobile.png', animations: 'disabled' });
     assert.equal(navigations, 1, 'Calculations and result updates must not reload the document');
     assert.deepEqual(errors, []);
     const recovery = await browser.newPage();

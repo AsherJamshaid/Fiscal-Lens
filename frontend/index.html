@@ -66,22 +66,45 @@
       <div class="section-head"><div><p class="eyebrow purple-text">LEVY</p><h2>Petroleum Levy Advisor</h2></div></div>
       <div class="levy-workspace">
         <aside class="forecast-stack">
-          <!-- EDITS START: recommendation panel now has id, progress steps, result wrapper and run button -->
           <div class="panel levy-recommendation" id="levyPanel" aria-busy="false"><div class="panel-title"><h3>Recommended levy</h3><span class="badge">PKR / litre</span></div>
-            <div id="levyProgress" hidden><ol id="levySteps" class="forecast-steps" aria-label="Regression tree progress"></ol></div>
+            <div id="levyProgress" hidden><ol id="levySteps" class="forecast-steps" aria-label="Recommendation calculation steps" aria-live="polite"></ol></div>
             <div id="levyResult">
               <div class="metric" id="levyValue">—</div><p id="levyRecommendationNote" class="small-note">Run the recommendation to view.</p>
-              <div class="levy-band-scale" aria-label="Levy bands"><span data-band="low">Low</span><span data-band="moderate">Moderate</span><span data-band="high">High</span><span data-band="very-high">Very high</span></div>
             </div>
             <button class="btn" id="runLevy" type="button">Run recommendation <span aria-hidden="true">↗</span></button>
-          <!-- EDITS END -->
           </div>
-          <div class="panel"><div class="panel-title"><h3>Pump price build-up</h3><span class="badge">Historical</span></div>
-            <div id="buildup" class="price-buildup" role="img" aria-label="Historical pump price breakdown"></div>
-            <dl id="buildupKeys" class="buildup-keys"></dl><p id="buildupNote" class="small-note"></p>
+          <div class="panel levy-formulas"><div class="panel-title"><h3>How it is calculated</h3></div>
+            <div class="levy-equation"><p class="eyebrow">01 / Required levy</p><p>Required levy =<br><strong>Revenue target ÷ Levied volume</strong></p></div>
+            <div class="levy-equation"><p class="eyebrow">02 / Recommendation</p><p>Recommended levy =<br><strong>Required levy × Multiplier</strong></p></div>
+            <p class="small-note">The regression tree estimates the multiplier. Levy values are in PKR per litre.</p>
           </div>
         </aside>
-        <div id="cards" class="cards levy-reference-cards"></div>
+        <div class="panel levy-details" id="levyDetails">
+          <div class="panel-title"><h3>Recommendation details</h3><span class="badge">Model inputs &amp; result</span></div>
+          <section class="levy-detail-group" aria-labelledby="levyCalculationHeading">
+            <h4 id="levyCalculationHeading">Calculation</h4>
+            <dl class="levy-detail-grid">
+              <div><dt>Required levy</dt><dd><span id="levyRequired">—</span><span class="unit">PKR / litre</span></dd></div>
+              <div><dt>Multiplier</dt><dd><span id="levyMultiplier">—</span><span class="unit">Regression-tree estimate</span></dd></div>
+            </dl>
+          </section>
+          <section class="levy-detail-group" aria-labelledby="levyComparisonHeading">
+            <h4 id="levyComparisonHeading">Current vs recommended</h4>
+            <dl class="levy-detail-grid">
+              <div><dt>Current levy</dt><dd><span id="levyCurrent">—</span><span class="unit">PKR / litre · Historical input</span></dd></div>
+              <div><dt>Difference</dt><dd><span id="levyDifference">—</span><span class="unit">PKR / litre · Recommended − current</span></dd></div>
+            </dl>
+          </section>
+          <section class="levy-detail-group" aria-labelledby="levyInputsHeading">
+            <h4 id="levyInputsHeading">Forecast input &amp; target period</h4>
+            <dl class="levy-crude-input"><dt>Forecast crude price used</dt><dd><span id="levyCrude">—</span> <span class="unit">USD / bbl</span></dd></dl>
+            <p class="small-note levy-input-note">Mean of the next 10 daily observations.</p>
+            <dl class="levy-detail-grid levy-period">
+              <div><dt>Period start</dt><dd id="levyPeriodStart">—</dd></div>
+              <div><dt>Period end</dt><dd id="levyPeriodEnd">—</dd></div>
+            </dl>
+          </section>
+        </div>
       </div>
     </section>
 <section id="benchmarks" class="section">
