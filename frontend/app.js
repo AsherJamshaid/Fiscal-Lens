@@ -358,7 +358,9 @@ async function runLevy() {
   renderLevyResult();
   levySteps(['running', 'pending', 'pending', 'pending']);
   message('levyRecommendationNote', 'Loading inputs…');
-  for (const id of ['treeMape', 'treeRmse', 'treeMae']) message(id, '—');
+  const treeMetrics = { mae: 'treeMae', rmse: 'treeRmse', previousLevyBaseline: 'treePreviousBaseline', trainingMeanBaseline: 'treeMeanBaseline', currentLevyBaseline: 'treeCurrentBaseline', walkForwardRmse: 'treeWalkForward' };
+  for (const id of Object.values(treeMetrics)) message(id, '—');
+  message('treeNote', 'Waiting for model evaluation…');
   try {
     // DEBUG: live() owns C++ training-data loading; fetching a browser CSV does not mount it in WASM.
     await ensureBrent();
@@ -383,13 +385,14 @@ async function runLevy() {
       await paint();
       const report = resultObject(await api.report());
       if (!report?.ok) throw new Error(report?.error || 'C++ evaluation failed.');
-      const section = String(report.output || '').split('TEST PERFORMANCE')[1] || '';
       let count = 0;
-      for (const [label, id] of [['MAPE', 'treeMape'], ['RMSE', 'treeRmse'], ['MAE', 'treeMae']]) {
-        const match = section.match(new RegExp(label + ':\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)'));
-        if (match && Number.isFinite(Number(match[1]))) { message(id, number(Number(match[1])) + (label === 'MAPE' ? '%' : '')); count++; }
+      for (const [key, id] of Object.entries(treeMetrics)) {
+        const value = report.metrics?.[key];
+        if (Number.isFinite(value)) { message(id, number(value)); count++; }
       }
-      message('treeNote', count === 3 ? 'Held-out regression-tree errors; lower is better.' : 'Evaluation output did not contain all three test metrics.');
+      message('treeNote', count === 6
+        ? 'All errors are in PKR / litre; lower is better. Baselines use the same held-out test rows. Walk-forward uses training rows only.'
+        : 'Some evaluation values are unavailable. Available errors are in PKR / litre; lower is better.');
     } catch (error) { reportError('treeNote', error); }
   } catch (error) {
     levySteps([...$('levySteps').children].map(item => item.dataset.state === 'running' ? 'error' : item.dataset.state));

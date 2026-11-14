@@ -113,9 +113,27 @@ fieldset { padding: 0; margin: 0 0 21px; border: 0; min-width: 0; }legend { font
 /* Benchmarks: two equal panels */
 .benchmark-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); }
 .benchmark-grid .accuracy-panel { margin-bottom:0; }
-.accuracy-arima { border-top:2px solid var(--blue); }
+.accuracy-arima { border-top:2px solid var(--blue); display:flex; flex-direction:column; }
+.accuracy-arima .forecast-stats { display:flex; flex-direction:column; flex:1; gap:0; margin-bottom:21px; }
+.accuracy-arima .forecast-stats > div { display:grid; grid-template-columns:minmax(0,1.618fr) minmax(0,1fr); align-items:center; gap:21px; flex:1; padding-block:21px; border-bottom:1px solid var(--line); }
+.accuracy-arima .forecast-stats > div:last-child { border-bottom:0; }
+.accuracy-arima .forecast-stats b { grid-column:2; grid-row:1; text-align:right; font-size:clamp(1.8rem,2.8vw,2.6rem); line-height:1.2; font-variant-numeric:tabular-nums; }
+.accuracy-arima .forecast-stats span { grid-column:1; grid-row:1; font-size:.95rem; }
+.accuracy-arima > .small-note { border-top:1px solid var(--line); padding-top:21px; margin-top:auto; font-size:.8rem; }
 .accuracy-tree { border-top:2px solid var(--purple); }
 .accuracy-tree .forecast-stats b { color:var(--purple); }
+.accuracy-tree .tree-model-stats { grid-template-columns:minmax(0,1fr) minmax(0,1.618fr); }
+.tree-evaluation-group { border-top:1px solid var(--line); padding-top:21px; margin-top:21px; }
+.tree-evaluation-group h4 { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin:0 0 13px; font-size:.8rem; font-weight:500; }
+.tree-evaluation-group h4 span { font-weight:400; color:var(--muted); }
+.tree-comparison-list { margin:0; }
+.tree-comparison-list > div { display:grid; grid-template-columns:minmax(0,1.618fr) minmax(0,1fr); gap:13px; align-items:baseline; padding-block:8px; }
+.tree-comparison-list dt { color:var(--muted); font-size:.875rem; line-height:1.5; }
+.tree-comparison-list dd { margin:0; text-align:right; color:var(--purple); font-size:1.2rem; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.tree-walk-forward dt { color:var(--text); }
+.tree-walk-forward dt span { display:block; margin-top:4px; color:var(--muted); font-size:.75rem; }
+.tree-walk-forward dd { color:var(--yellow); }
+.accuracy-tree > .small-note { margin-top:21px; font-size:.8rem; }
 @media(max-width:800px) { .benchmark-grid { grid-template-columns:1fr; } }
 
 /* EDITS: spacing for the Run recommendation button */

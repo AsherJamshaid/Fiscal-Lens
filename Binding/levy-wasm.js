@@ -122,7 +122,21 @@ const LevyWasm = (() => {
   async function report() {
     const M = await init();
     const r = M.runReport();
-    return { ok: r.code === 0, output: r.output };
+    const test = (r.output.split('TEST PERFORMANCE')[1] || '').split('BASELINES ON THE SAME TEST ROWS')[0];
+    const baselines = (r.output.split('BASELINES ON THE SAME TEST ROWS')[1] || '').split('ACTUAL VS PREDICTED')[0];
+    const read = (text, pattern) => {
+      const match = text.match(pattern);
+      const value = match ? Number(match[1]) : NaN;
+      return Number.isFinite(value) && value >= 0 && value < 1e299 ? value : null;
+    };
+    return { ok: r.code === 0, output: r.output, metrics: {
+      mae: read(test, /\bMAE:\s*([\d.eE+-]+)/),
+      rmse: read(test, /\bRMSE:\s*([\d.eE+-]+)/),
+      previousLevyBaseline: read(baselines, /Previous recommended levy\s+([\d.eE+-]+)/),
+      trainingMeanBaseline: read(baselines, /Training mean\s+([\d.eE+-]+)/),
+      currentLevyBaseline: read(baselines, /Current levy \(status quo\)\s+([\d.eE+-]+)/),
+      walkForwardRmse: read(baselines, /Walk-forward RMSE of chosen model \(training rows\):\s*([\d.eE+-]+)/)
+    } };
   }
 
   // ARIMA mean forecast over the next nDays for an array of daily prices.

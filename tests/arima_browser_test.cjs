@@ -76,7 +76,14 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => !document.getElementById('runLevy').disabled);
     assert.match(await page.locator('#levyRecommendationNote').innerText(), /Regression-tree recommendation/);
     assert.notEqual(await page.locator('#levyValue').innerText(), '—');
-    assert.notEqual(await page.locator('#treeMape').innerText(), '—');
+    const reportMetrics = await page.evaluate(async () => (await LevyWasm.report()).metrics);
+    for (const [key, id] of Object.entries({ mae: 'treeMae', rmse: 'treeRmse', previousLevyBaseline: 'treePreviousBaseline', trainingMeanBaseline: 'treeMeanBaseline', currentLevyBaseline: 'treeCurrentBaseline', walkForwardRmse: 'treeWalkForward' })) {
+      const text = await page.locator('#' + id).innerText();
+      assert(!text.includes('%'));
+      assert(Math.abs(Number(text.replaceAll(',', '')) - reportMetrics[key]) <= 0.0051, id + ': displayed metric mismatch');
+    }
+    assert.equal(await page.locator('#treeMape').count(), 0);
+    assert.notEqual(await page.locator('#statMape').innerText(), '—', 'Tracker MAPE remains unchanged');
     assert.deepEqual(await page.locator('#levySteps li span:first-child').allTextContents(), [
       '1. Load latest fortnight data', '2. Calculate required levy', '3. Walk the decision tree', '4. Apply the multiplier'
     ]);
@@ -109,10 +116,14 @@ const server = http.createServer((req, res) => {
     assert.match(await page.locator('#levyRecommendationNote').innerText(), /Regression-tree recommendation/);
     await page.locator('#levy').scrollIntoViewIfNeeded();
     if (process.env.LEVY_SCREENSHOTS) await page.locator('#levy').screenshot({ path: 'tmp/levy-desktop.png', animations: 'disabled' });
+    await page.locator('#benchmarks').scrollIntoViewIfNeeded();
+    if (process.env.LEVY_SCREENSHOTS) await page.locator('#benchmarks').screenshot({ path: 'tmp/benchmarks-desktop.png', animations: 'disabled' });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('#levy').scrollIntoViewIfNeeded();
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Mobile layout must not overflow');
     if (process.env.LEVY_SCREENSHOTS) await page.locator('#levy').screenshot({ path: 'tmp/levy-mobile.png', animations: 'disabled' });
+    await page.locator('#benchmarks').scrollIntoViewIfNeeded();
+    if (process.env.LEVY_SCREENSHOTS) await page.locator('#benchmarks').screenshot({ path: 'tmp/benchmarks-mobile.png', animations: 'disabled' });
     assert.equal(navigations, 1, 'Calculations and result updates must not reload the document');
     assert.deepEqual(errors, []);
     const recovery = await browser.newPage();

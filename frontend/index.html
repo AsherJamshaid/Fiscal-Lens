@@ -114,8 +114,19 @@
           <div class="forecast-stats"><div><b id="statMape">—</b><span>MAPE</span></div><div><b id="statRmse">—</b><span>RMSE</span></div><div><b id="statMae">—</b><span>MAE</span></div></div>
           <p id="accuracyNote" class="small-note" aria-live="polite">Run a forecast to view accuracy.</p>
         </div>
-        <div class="panel accuracy-panel accuracy-tree"><div class="panel-title"><h3>Regression tree accuracy</h3><span class="badge">Held-out data</span></div>
-          <div class="forecast-stats"><div><b id="treeMape">—</b><span>MAPE</span></div><div><b id="treeRmse">—</b><span>RMSE</span></div><div><b id="treeMae">—</b><span>MAE</span></div></div>
+        <div class="panel accuracy-panel accuracy-tree"><div class="panel-title"><h3>Levy advisor performance</h3><span class="badge">Module 2</span></div>
+          <div class="forecast-stats tree-model-stats"><div><b id="treeMae">—</b><span>MAE · Held-out data</span></div><div><b id="treeRmse">—</b><span>RMSE · Held-out data</span></div></div>
+          <div class="tree-evaluation-group">
+            <h4>Baseline comparisons <span>Test RMSE</span></h4>
+            <dl class="tree-comparison-list">
+              <div><dt>Previous levy baseline</dt><dd id="treePreviousBaseline">—</dd></div>
+              <div><dt>Training mean baseline</dt><dd id="treeMeanBaseline">—</dd></div>
+              <div><dt>Current levy baseline</dt><dd id="treeCurrentBaseline">—</dd></div>
+            </dl>
+          </div>
+          <div class="tree-evaluation-group">
+            <dl class="tree-comparison-list tree-walk-forward"><div><dt>Walk-forward <span>Training rows · RMSE</span></dt><dd id="treeWalkForward">—</dd></div></dl>
+          </div>
           <p id="treeNote" class="small-note" aria-live="polite">Awaiting regression-tree output.</p>
         </div>
       </div>

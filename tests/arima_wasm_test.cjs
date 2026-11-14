@@ -45,5 +45,22 @@ const assert = require('node:assert/strict');
  const report = await context.api.report();
  assert(report.ok, 'Tree report regression: ' + report.output);
  assert(report.output.includes('TEST PERFORMANCE'));
+ for (const key of ['mae', 'rmse', 'previousLevyBaseline', 'trainingMeanBaseline', 'currentLevyBaseline', 'walkForwardRmse']) {
+   assert(Number.isFinite(report.metrics[key]) && report.metrics[key] >= 0, key);
+ }
+ // Independently recompute the three test baselines from the training CSV.
+ const rows = fs.readFileSync('data/processed/levy_training.csv', 'utf8').trim().split(/\r?\n/);
+ const columns = rows.shift().split(',');
+ const data = rows.map(row => Object.fromEntries(row.split(',').map((v, i) => [columns[i], Number(v)])));
+ const trainCount = Number(report.output.match(/Training samples:\s+(\d+)/)[1]);
+ const mean = data.slice(0, trainCount).reduce((sum, row) => sum + row.levy_value, 0) / trainCount;
+ const test = data.slice(trainCount);
+ const rmse = predict => Math.sqrt(test.reduce((sum, row, i) => sum + (row.levy_value - predict(row, i)) ** 2, 0) / test.length);
+ for (const [key, expected] of [
+   ['trainingMeanBaseline', rmse(() => mean)],
+   ['previousLevyBaseline', rmse((row, i) => data[trainCount + i - 1].levy_value)],
+   ['currentLevyBaseline', rmse(row => row.current_levy)]
+ ]) assert(Math.abs(report.metrics[key] - expected) < 0.00051, key + ': incorrect test baseline');
+ console.log('Module 2 metrics:', JSON.stringify(report.metrics));
  console.log('WASM bridge checks passed');
 })().catch(error=>{console.error(error);process.exitCode=1});
