@@ -3,7 +3,39 @@
 A two-module dashboard that forecasts commodity prices and recommends a Pakistan petroleum levy. 
 Built for the Data Structures & Algorithms Semester Project, with the core ML algorithms written from scratch in C++.
 
-**Live demo:** coming soon (the link will be added after deployment).
+**Live demo:** https://m-mahad-amir.github.io/Fiscal-Lens/frontend/
+
+## Why this project
+
+Petrol is one of the most visible costs in a Pakistani household budget, and a large part of its pump price is not set by the market. According to the OGRA notification of 14 Nov 2026 (as republished by petrolratetoday.pk), a litre of petrol costs Rs 330.00:
+
+| Component | Rs / litre | Share |
+|---|---|---|
+| Ex-refinery / import price (follows oil prices and the dollar rate) | 235.05 | 71.2% |
+| Freight, oil company and dealer margins | 25.98 | 7.9% |
+| Petroleum levy + climate support levy (set by government) | 68.64 | 20.8% |
+| Sales tax (petrol is currently exempt) | 0.00 | 0.0% |
+
+Only the ex-refinery price follows the market. The levy is a policy choice, so when global prices fall, the pump price falls by less than the headlines suggest. The levy is also a major source of government revenue, which creates a tension:
+
+- The government needs the revenue to meet fiscal and IMF targets.
+- Every extra rupee of levy lands on households that are already stretched.
+
+**The problem we target.** Levy decisions are hard to make transparently because they depend on several moving inputs at once: where crude prices are heading, how affordable fuel is for ordinary people, and how much revenue must be collected. Fiscal Lens turns those inputs into a recommendation that can be explained.
+
+**Scope.**
+- Module 1 forecasts Brent crude, the main market-driven input.
+- Module 2 combines that forecast with an affordability index (how many 40-litre tanks the minimum wage buys) and the revenue target. It recommends a levy that eases the burden when affordability is low or crude is high, while tracking the revenue need.
+
+## How the recommendation works
+
+Module 1 forecasts Brent crude and passes one number, the mean of the next 10 forecasted days, to Module 2. Module 2 first works out the **required levy**, which is the levy that would exactly hit the revenue target. The regression tree then predicts a **multiplier** that scales this down when fuel is hard to afford or crude is high:
+
+```text
+recommended levy = required levy x predicted multiplier
+```
+
+The multiplier rule, the affordability index and all other formulas are in `docs/working.md`. Every recommendation can be traced to a printed decision path of the tree, and the complexity analysis is in `docs/dsa_analysis.md`.
 
 ## What it does
 
@@ -26,6 +58,7 @@ Built for the Data Structures & Algorithms Semester Project, with the core ML al
 | Data pipeline | Python 3 (`pandas`, `numpy`) | Cleaning Brent data, regenerating levy labels |
 | Storage | CSV files | No database; data is read into memory at startup |
 | Bridge | WebAssembly | Connecting the backend to the dashboard |
+| Deployment | GitHub Actions | Automated build and deploy of the dashboard |
 
 ## Run locally
 
@@ -80,10 +113,10 @@ fiscal-lens/
 
 | Member | Role | Contributions |
 |---|---|---|
-| Asher Jamshaid | Module 1 backend | Backend work on Module 1, then sourced and built the real dataset for Module 1 as well. CCP Report. |
-| S.M. Mutahir Mustafa | Module 1, then frontend integration | Worked alongside on Module 1, then moved to the frontend: bug fixing and the WebAssembly bridge. |
-| M. Mahad Amir | Module 2 backend | Backend Work on Module 2. Built the initial synthetic datasets for both modules, then sourced and built the real dataset for Module 2. Handeled Documentation. |
-| Jibrail Nabi Khan | Module 2, then frontend design | Worked alongside on Module 2, then moved to the frontend: UI design and layout. |
+| Asher Jamshaid | Module 1 backend | <ul><li>Built the Module 1 backend</li><li>Sourced and built the real Module 1 dataset</li><li>Wrote the CCP report</li></ul> |
+| S.M. Mutahir Mustafa | Module 1, then frontend integration | <ul><li>Collaborated on Module 1</li><li>Fixed frontend bugs</li><li>Built the WebAssembly bridge</li></ul> |
+| M. Mahad Amir | Module 2 backend | <ul><li>Built the Module 2 backend</li><li>Sourced and built the real Module 2 dataset</li><li>Wrote the project documentation</li><li>Deployed the project using GitHub Actions</li></ul> |
+| Jibrail Nabi Khan | Module 2, then frontend design | <ul><li>Collaborated on Module 2</li><li>Designed the frontend UI and layout</li><li>Fixed bugs and finalized the frontend</li></ul> |
 
 ## Documentation
 
